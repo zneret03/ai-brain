@@ -1,0 +1,20 @@
+#!/usr/bin/env bash
+# The ai-brain CLI: ask the cross-repo graph of the workspace's repos, their plans and notes. Contract: docs/AI_BRAIN.md.
+#
+#   ai-brain/bin/ai-brain <verb> ...   from the workspace root, e.g. ticket PROJ-123 or surface order queue
+#   ai-brain/bin/ai-brain --help       every verb and what it answers; <verb> --help for its options
+set -euo pipefail
+BRAIN="$(cd "$(dirname "$0")/../ai-brain" && pwd)"
+if [ ! -x "$BRAIN/.venv/bin/python" ]; then
+  if [ "${1:-}" = -h ] || [ "${1:-}" = --help ]; then
+    awk 'NR==1{next} /^#/{sub(/^# ?/,""); print; next} {exit}' "$0"
+    echo; echo "Not set up yet: run ai-brain/bin/ai-brain-up, then --help lists the verbs."; exit 0
+  fi
+  echo "ai-brain: not run (not set up: ai-brain/bin/ai-brain-bootstrap)"
+  exit 3
+fi
+export PYTHONNOUSERSITE=1 \
+       PYTHONPYCACHEPREFIX="$BRAIN/var/cache/pycache" \
+       PIP_CACHE_DIR="$BRAIN/var/cache/pip" \
+       XDG_CACHE_HOME="$BRAIN/var/cache"
+exec "$BRAIN/.venv/bin/python" -m ai_brain.cli "$@"

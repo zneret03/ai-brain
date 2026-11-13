@@ -1,0 +1,99 @@
+#!/usr/bin/env bash
+# One command to start or update the whole brain: this repo, Docker, the venv, Neo4j, the schema, the index,
+# the skill link. Neo4j runs in Docker; the CLI, the hook and the Rails boot stay on the host (docs/AI_BRAIN.md).
+#
+#   bin/ai-brain-up                 pull this repo, start what is down, index what changed (everything the first time)
+#   bin/ai-brain-up --full          rebuild the graph from empty
+#   bin/ai-brain-up --no-boot       keep the last Rails facts instead of booting the monolith
+#   bin/ai-brain-up --no-fetch      index what is already fetched, and pull nothing
+#   bin/ai-brain-up --no-pull       fetch, but leave every checkout where it is
+#   bin/ai-brain-up --project NAME  a project other than the one your directory is in
+#   bin/ai-brain-up --status        report, change nothing
+#   bin/ai-brain-up --down          stop Neo4j; the graph stays on disk
+#   bin/ai-brain-up --help          this text
+set -euo pipefail
+if [ "${1:-}" = -h ] || [ "${1:-}" = --help ]; then awk 'NR==1{next} /^#/{sub(/^# ?/,""); print; next} {exit}' "$0"; exit 0; fi
+BIN="$(cd "$(dirname "$0")" && pwd)"
+BRAIN="$(cd "$BIN/../ai-brain" && pwd)"
+COMPOSE=(docker compose -f "$BRAIN/compose.yaml")
+
+case "${1:-}" in
+  --status) exec "$BIN/ai-brain" doctor ;;
+  --down) exec "${COMPOSE[@]}" stop ;;
+esac
+args=("$@")
+index_args=()
+pull=--pull
+while [ $# -gt 0 ]; do
+  case "$1" in
+    --full|--no-boot|--no-fetch) index_args+=("$1") ;;
+    --no-pull) pull= ;;
+    --project) index_args+=("--project" "${2:?--project needs a name}"); shift ;;
+    *) echo "ai-brain-up: unknown option $1" >&2; exit 2 ;;
+  esac
+  shift
+done
+
+step() { printf '\n==> %s\n' "$*"; }
+
+step "ai-brain"
+ORCH="$(cd "$BIN/.." && pwd)"
+before="$(git -C "$ORCH" rev-parse --short HEAD)"
+if [ -z "$pull" ] || [[ " ${index_args[*]-} " == *" --no-fetch "* ]]; then
+  echo "left as it is"
+elif [ "$(git -C "$ORCH" symbolic-ref --short -q HEAD)" != main ] || [ -n "$(git -C "$ORCH" status --porcelain --untracked-files=no)" ]; then
+  echo "skipped: not a clean checkout of main"
+elif ! git -c advice.diverging=false -C "$ORCH" pull --ff-only --no-rebase -q origin main; then
+  echo "skipped: the pull failed"
+elif [ "$(git -C "$ORCH" rev-parse --short HEAD)" = "$before" ]; then
+  echo "up to date"
+else
+  echo "pulled $before..$(git -C "$ORCH" rev-parse --short HEAD); starting again on the new copy"
+  exec "$0" "${args[@]}"  # the pull can change this script, requirements.lock and compose.yaml
+fi
+
+step "Docker"
+if ! command -v docker >/dev/null; then
+  echo "Docker Engine is not installed. Run: bash $BRAIN/setup/install-docker.sh (it asks for sudo)." >&2
+  exit 1
+fi
+if ! docker info >/dev/null 2>&1; then
+  echo "The Docker daemon does not answer. Start it: sudo systemctl start docker" >&2
+  echo "Running but 'permission denied': add yourself to the docker group (see install-docker.sh)." >&2
+  exit 1
+fi
+docker version --format 'engine {{.Server.Version}}'
+
+step "Python venv and .env"
+if [ -x "$BRAIN/.venv/bin/python" ] && [ -f "$BRAIN/.env" ] && cmp -s "$BRAIN/requirements.lock" "$BRAIN/.venv/requirements.lock"; then
+  echo "present"
+else
+  "$BIN/ai-brain-bootstrap"
+fi
+
+step "Neo4j"
+"${COMPOSE[@]}" up -d
+for _ in $(seq 1 60); do  # the container takes a while to accept bolt connections after a start
+  "$BIN/ai-brain" schema apply >/dev/null 2>&1 && break
+  sleep 2
+done
+"$BIN/ai-brain" schema apply
+
+step "Index"
+if ! compgen -G "$BRAIN/var/state/*.json" >/dev/null; then
+  echo "first index on this machine: building everything"
+  index_args+=("--full")
+fi
+if [[ " ${index_args[*]-} " != *" --no-boot "* ]] && command -v pg_isready >/dev/null && ! pg_isready -q; then
+  echo "Postgres is down, so the Rails boot will fail and the last facts stay in use."
+fi
+"$BIN/ai-brain" index ${pull:+"$pull"} "${index_args[@]}"
+
+step "Skill link"
+"$BIN/install.sh" | grep -m1 "^installed"
+
+step "Ready"
+"$BIN/ai-brain" doctor
+echo
+echo "Ask from the workspace root:  ai-brain/bin/ai-brain surface <words>   (or /ai-brain in a Claude session)"
+echo "Browser:                      http://localhost:7474, user neo4j, password in ai-brain/ai-brain/.env"

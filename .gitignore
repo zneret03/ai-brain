@@ -1,0 +1,17 @@
+# Your own plans, reviews, hunt reports and bugs: they never leave your machine.
+/sprints/
+
+# Local instructions and harness files for your own workspace, never published.
+/CLAUDE.local.md
+/.claude/agents/
+/.claude/commands/
+/.claude/workflows/
+/.claude/skills/*
+!/.claude/skills/ai-brain/
+/docs/*
+!/docs/AI_BRAIN.md
+/bin/plan-doc
+/ai-brain/projects/*
+!/ai-brain/projects/_template/
+/ai-brain/tests/eval/
+/ai-brain/tests/test_plan_doc.py

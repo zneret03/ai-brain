@@ -1,0 +1,20 @@
+#!/usr/bin/env bash
+# Every script in ai-brain/bin and what it is for, read from each script's own header.
+# Each one takes --help for its options; the brain's verbs are in `ai-brain --help`.
+#
+#   ai-brain/bin/help
+set -euo pipefail
+if [ "${1:-}" = -h ] || [ "${1:-}" = --help ]; then awk 'NR==1{next} /^#/{sub(/^# ?/,""); print; next} {exit}' "$0"; exit 0; fi
+BIN="$(cd "$(dirname "$0")" && pwd)"
+
+echo "ai-brain/bin: run any of these from the workspace root as ai-brain/bin/<name>; each takes --help."
+echo
+for f in "$BIN"/*; do
+  [ -f "$f" ] && [ -x "$f" ] || continue
+  # the header's first paragraph: comment lines after the shebang, up to the first empty one
+  awk 'NR==1{next} /^#/{sub(/^# ?/,""); if ($0=="") exit; printf "%s%s", (n++ ? " " : ""), $0; next} {exit}' "$f" \
+    | fold -s -w 86 | sed 's/ *$//' \
+    | awk -v name="$(basename "$f")" '{printf "  %-20s %s\n", (NR==1 ? name : ""), $0}'
+done
+echo
+echo "The brain's verbs, each with what it answers: ai-brain/bin/ai-brain --help"

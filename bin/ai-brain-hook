@@ -1,0 +1,13 @@
+#!/usr/bin/env bash
+# PostToolUse hook on Edit|Write; docs/AI_BRAIN.md shows how to register it. Silent without the brain, so a
+# teammate without one never sees it.
+# After an edit to a file that crosses a boundary, it shows that file's card once per session.
+#
+#   not run by hand: it reads the hook's JSON on stdin
+set -euo pipefail
+if [ "${1:-}" = -h ] || [ "${1:-}" = --help ]; then awk 'NR==1{next} /^#/{sub(/^# ?/,""); print; next} {exit}' "$0"; exit 0; fi
+BRAIN="$(cd "$(dirname "$0")/../ai-brain" && pwd)"
+[ -x "$BRAIN/.venv/bin/python" ] || exit 0
+export PYTHONNOUSERSITE=1 \
+       PYTHONPYCACHEPREFIX="$BRAIN/var/cache/pycache"
+exec "$BRAIN/.venv/bin/python" -m ai_brain.hook "$@"

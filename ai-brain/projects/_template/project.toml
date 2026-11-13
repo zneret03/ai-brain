@@ -1,0 +1,44 @@
+# Copy this folder to projects/<name>/, list the repos, then: ai-brain/bin/ai-brain-up --project <name>
+[project]
+name = "example"
+root = ".."                  # the workspace root: absolute, ~/..., or relative to the ai-brain checkout
+
+[[repos]]
+name = "example-app"         # a folder under root
+role = "monorepo"            # monorepo | app | pilet | shell | library | e2e
+ref  = "main"                # read at origin/<ref>
+
+# [[knowledge]]
+# name = "example-docs"
+# kind = "sprints"           # notes (frontmatter sources[]) | sprints (sprints/ read from disk, docs/ at main)
+#                            # | plans (an archive read from every branch head)
+# ref  = "main"
+
+# [externals]
+# from = "example-app/Gemfile.lock"            # GIT sources not cloned here become externals; a library repo
+#                                              # is read at the tag this lockfile pins
+
+# [rails]
+# app = "example-app"                          # booted with bin/rails runner extractors/rails_introspect.rb,
+# env = "development"                          # a script you put in this folder; RAILS_ENV for the boot
+
+# [extractors]
+# pilet_routing = "extractors/pilet_routing.py"  # router(ctx, repo) -> (operation name -> engine or None)
+
+[skip]
+dirs = []                    # folders under root that are not repos, e.g. a worktree
+
+# [tickets]
+# prefix = "PROJ"            # ticket keys PROJ-123 and ticket branches like you/proj-123-v1; unset: no ticket links
+
+# [names]
+# strip_prefix = ""          # dropped from repo and engine names in output, e.g. "acme-"
+# apps = {}                  # a monorepo's apps/<dir> to a component name, e.g. { acme = "monolith" }
+
+# [http]
+# own_hosts = []             # host or env-var words that are your own systems, not external APIs
+
+# [[graphql.snapshots]]      # a committed schema snapshot in a frontend repo and the engine whose SDL it must match
+# repo = "web-app"
+# path = "src/graphql/schema.graphql"
+# engine = "billing"
