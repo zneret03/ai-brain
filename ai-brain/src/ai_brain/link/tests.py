@@ -1,7 +1,9 @@
-"""Specs and what they pin: RSpec describe and mirrored paths, Jest imports, Playwright page objects and tags (A10)."""
+"""Specs and what they pin: RSpec describe and mirrored paths, Jest imports, Playwright page objects and tags (A10);
+in the other languages, a test's imports and the file it is named after."""
 
 from __future__ import annotations
 
+import posixpath
 import re
 
 from ..model import TEST_PATH
@@ -9,6 +11,8 @@ from . import Ctx
 from .code import primary_def, resolve_const
 
 TEST = TEST_PATH
+MARKED = re.compile(r"^test_(.+)$|^(.+?)(?:_test|_spec|Tests?|IT)$")
+SWAPS = (("src/test/", "src/main/"), ("test/", "lib/"), ("tests/", "src/"), ("tests/", ""), ("test/", "src/"))
 
 
 def link(ctx: Ctx) -> None:
@@ -20,6 +24,7 @@ def link(ctx: Ctx) -> None:
     ]
     for repo, files_ in ctx.parsed.items():
         paths = set(files_)
+        by_base: dict[str, list[str]] = {}
         for path, f in files_.items():
             if not TEST.search(path):
                 continue
@@ -44,9 +49,42 @@ def link(ctx: Ctx) -> None:
                         for goto in _gotos(ctx, repo, target):
                             for pid in _match_pages(pages, goto):
                                 g.edge("TESTS", fid, pid, via=target)
-                for tag, line in f.get("tags", []):
-                    tid = g.node(f"{ctx.project.name}:ticket:{tag}", "Ticket", name=tag)
-                    g.edge("TAGGED", fid, tid, line=line)
+                _tag(ctx, fid, f)
+            elif f.get("lang") not in ("ruby", "?", None):
+                for _local, (_imported, target, _module) in ctx.imports.get((repo, path), {}).items():
+                    if target and not TEST.search(target):
+                        g.edge("TESTS", fid, g.file_id(repo, target), via="import")
+                if not by_base:
+                    for p in paths:
+                        by_base.setdefault(p.rsplit("/", 1)[-1], []).append(p)
+                mirror = _mirror(path, paths, by_base)
+                if mirror:
+                    g.edge("TESTS", fid, g.file_id(repo, mirror), via="path")
+                _tag(ctx, fid, f)
+
+
+def _tag(ctx: Ctx, fid: str, f: dict) -> None:
+    for tag, line in f.get("tags", []):
+        tid = ctx.g.node(f"{ctx.project.name}:ticket:{tag}", "Ticket", name=tag)
+        ctx.g.edge("TAGGED", fid, tid, line=line)
+
+
+def _mirror(path: str, paths: set[str], by_base: dict[str, list[str]]) -> str | None:
+    """The file a test is named after (orders_test.go, test_orders.py, orders_test.exs, OrderTest.java): beside it,
+    in the mirrored folder (test/ to lib/, src/test/ to src/main/), or the one file of that name in the repo."""
+    folder, base = posixpath.split(path)
+    stem, ext = posixpath.splitext(base)
+    m = MARKED.match(stem)
+    if not m:
+        return None
+    name = (m.group(1) or m.group(2)) + {".exs": ".ex"}.get(ext, ext)
+    probe = f"/{folder}/" if folder else "/"
+    folders = [folder] + [probe.replace(f"/{a}", f"/{b}", 1).strip("/") for a, b in SWAPS if f"/{a}" in probe]
+    for cand in ("/".join(x for x in (d, name) if x) for d in folders):
+        if cand in paths and not TEST.search(cand):
+            return cand
+    same = [p for p in by_base.get(name, []) if not TEST.search(p)]
+    return same[0] if len(same) == 1 else None
 
 
 def _gotos(ctx: Ctx, repo: str, path: str) -> list[str]:

@@ -35,13 +35,15 @@ It was built for workspaces shaped like this, and reads each part by its role:
 - React and TypeScript frontends: micro-frontends (Piral pilets) and the shell that hosts them, talking GraphQL
   (Apollo);
 - shared libraries, and a Playwright end-to-end suite whose tests carry ticket tags like `@PROJ-123`;
+- services and libraries in other languages, such as Python, Go, Rust, Elixir, Java or Kotlin: their definitions,
+  imports, calls and tests;
 - optionally, a notes repo, and plan documents for the tickets you work on.
 
-It parses Ruby, TypeScript and JavaScript with tree-sitter. The Rails facts (routes, the GraphQL schema, models,
-policies, jobs, mounts, Kafka consumers) come from booting the app with a script you supply. It draws an edge
-only where the code states one, so a call through `send`, a callback or a prop has none. It does not read an issue
-tracker, a database's rows or a running app. What it reads in each language, and what is planned for others, is in
-[docs/LANGUAGES.md](docs/LANGUAGES.md).
+It parses Ruby, TypeScript and JavaScript in depth with tree-sitter, and every other language whose grammar ships a
+tags query through that query. The Rails facts (routes, the GraphQL schema, models, policies, jobs, mounts, Kafka
+consumers) come from booting the app with a script you supply. It draws an edge only where the code states one, so
+a call through `send`, a callback or a prop has none. It does not read an issue tracker, a database's rows or a
+running app. What it reads in each language, and how to add one, is in [docs/LANGUAGES.md](docs/LANGUAGES.md).
 
 ## Requirements
 
@@ -125,6 +127,7 @@ Every script in `bin/`, with what it is for (`ai-brain/bin/help`):
 | `[names] strip_prefix` | dropped from repo and engine names in output, e.g. `"acme-"` |
 | `[names] apps` | a monorepo's `apps/<dir>` to a component name, e.g. `{ acme = "monolith" }` |
 | `[http] own_hosts` | host or env-var words that are your own systems, so HTTP calls to them are not external APIs |
+| `[languages] include`, `exclude` | the languages read besides Ruby and TypeScript; unset, every one with a tags query. `queries/<language>/tags.scm` beside the file adds one ([docs/LANGUAGES.md](docs/LANGUAGES.md)) |
 | `[[graphql.snapshots]] repo`, `path`, `engine` | a schema snapshot committed in a frontend repo, and the engine whose SDL it must match (`status --skew`) |
 
 Several projects share one Neo4j, kept apart by a `project` property. Every verb takes `--project`, and defaults

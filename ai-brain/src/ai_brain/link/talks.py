@@ -33,7 +33,7 @@ def link(ctx: Ctx) -> None:
         if t == "ROUTED_TO":
             add(unit_of.get(s), d, "graphql")
         elif t in ("REFERENCES", "CALLS") and props.get("cross_engine"):
-            add(unit_of.get(s), unit_of.get(d), "ruby")
+            add(unit_of.get(s), unit_of.get(d), _lang(g, s))
         elif t == "ENQUEUES":
             add(unit_of.get(s), unit_of.get(d), "job")
         elif t == "CALLS_ROUTE":
@@ -82,3 +82,10 @@ def link(ctx: Ctx) -> None:
             detail=[f"{k}:{v}" for k, v in sorted(vias.items(), key=lambda kv: (-kv[1], kv[0]))],
             count=sum(vias.values()),
         )
+
+
+def _lang(g, nid: str) -> str:
+    """The language of the file a code edge starts in: ruby, or one of the languages the generic reader reads."""
+    props = g.nodes[nid][1]
+    f = g.nodes.get(g.file_id(props.get("repo", ""), props.get("path", "")))
+    return (f[1].get("lang") if f else None) or "code"

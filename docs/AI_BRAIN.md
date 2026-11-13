@@ -31,7 +31,8 @@ Every `repo/path:line` that a plan, a review, a `docs/` page or a `profile/` pag
 ticket's work. The edge types are listed in `ai-brain/ai-brain/src/ai_brain/model/__init__.py`, `EDGES`.
 
 It draws an edge only where the code states one. A Ruby call on a receiver of unknown class gets an edge only
-when the method name is defined once in that engine, marked `(inferred)`. `send`, callbacks, `delegate`,
+when the method name is defined once in that engine, marked `(inferred)`, and so does a call in any other language
+whose name was neither imported nor defined in its file. `send`, callbacks, `delegate`,
 `method_missing`, and functions passed through props or context have no edge. The languages it parses, and what it
 reads in each, are in `ai-brain/docs/LANGUAGES.md`.
 

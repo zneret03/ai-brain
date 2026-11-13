@@ -5,7 +5,8 @@ from __future__ import annotations
 import subprocess
 from pathlib import Path
 
-PARSED = (".rb", ".ts", ".tsx", ".js", ".jsx", ".mjs")
+from . import languages
+
 SKIP_PARTS = ("node_modules/", "vendor/", "/public/", "db/migrate/", "/tmp/", "coverage/", "dist/", "build/")
 SKIP_SUFFIX = (".min.js", ".d.ts")
 MAX_BYTES = 1_000_000
@@ -87,7 +88,7 @@ def ls_tree(repo: Path, sha: str) -> list[tuple[str, str, int]]:
 
 
 def wanted(path: str, size: int) -> bool:
-    if size > MAX_BYTES or not path.endswith(PARSED) or path.endswith(SKIP_SUFFIX):
+    if size > MAX_BYTES or path.endswith(SKIP_SUFFIX) or languages.language_for(path) is None:
         return False
     probe = "/" + path
     return not any(part in probe for part in SKIP_PARTS) and "/src/gql/" not in probe

@@ -6,7 +6,10 @@ from __future__ import annotations
 import re
 import sys
 
-from tree_sitter_language_pack import get_parser
+import tree_sitter as ts
+from tree_sitter_language_pack import get_language, get_parser
+
+from . import languages
 
 VERSION = 4  # bump to invalidate the parse cache
 
@@ -23,29 +26,21 @@ KEYS = (
 ).split()
 
 
-def language_for(path: str) -> str | None:
-    if path.endswith(".rb"):
-        return "ruby"
-    if path.endswith(".ts"):
-        return "typescript"
-    if path.endswith((".tsx", ".jsx", ".js", ".mjs")):
-        return "tsx"
-    return None
-
-
 def parse(path: str, data: bytes) -> dict | None:
-    lang = language_for(path)
+    lang = languages.language_for(path)
     if lang is None:
         return None
     parser = _PARSERS.get(lang) or _PARSERS.setdefault(lang, get_parser(lang))
     tree = parser.parse(data)
     out: dict = {k: [] for k in KEYS}
-    out["lang"] = "ruby" if lang == "ruby" else "ts"
+    out["lang"] = lang if lang not in languages.OWN else "ruby" if lang == "ruby" else "ts"
     out["error"] = bool(tree.root_node.has_error)
     if lang == "ruby":
         _Ruby(data, out).walk(tree.root_node, (), "", "", False)
-    else:
+    elif lang in languages.OWN:
         _TS(data, out, path).run(tree.root_node)
+    else:
+        _Generic(data, out, lang).run(tree.root_node)
     for key in ("refs", "ident_refs", "calls", "flags", "env", "urls"):
         out[key] = _dedupe(out[key])
     return out
@@ -578,3 +573,150 @@ class _TS(_Base):
 
     def _string_value(self, n) -> str:
         return "".join(self.text(c) for c in n.children if c.type in ("string_fragment", "escape_sequence"))
+
+
+class _Generic(_Base):
+    """Any language with a tags query (A2). Definitions nest by their byte ranges, and an `impl` block nests its
+    methods under its type; a call or a type reference keeps the receiver written before its name."""
+
+    SIMPLE = re.compile(r"[A-Za-z_$@][\w$]*(?:(?:\.|::|->)[A-Za-z_$][\w$]*)*")
+    CLASSY = {"class", "interface", "struct", "trait", "object", "implementation"}
+    _QUERIES: dict = {}
+
+    def __init__(self, src: bytes, out: dict, lang: str):
+        super().__init__(src, out)
+        self.lang = lang
+
+    def run(self, root) -> None:
+        events = self._tags(root) + self._scan(root) + self._env()
+        events.sort(key=lambda e: (e[0], -e[1]))
+        stack: list[tuple[int, str, str]] = []  # (end byte, qual, kind) of the definitions open at this byte
+        for start, end, what, *rest in events:
+            while stack and stack[-1][0] <= start:
+                stack.pop()
+            owner = stack[-1][1] if stack else ""
+            if what == "def":
+                name, kind, line, node = rest
+                if kind == "function" and stack and stack[-1][2] in self.CLASSY:
+                    kind = "method"
+                qual = f"{owner}.{name}" if owner else name
+                self.out["symbols"].append([qual, kind, line, self._params(node), ""])
+                stack.append((end, qual, kind))
+            elif what == "impl":
+                stack.append((end, f"{owner}.{rest[0]}" if owner else rest[0], "implementation"))
+            elif what == "tags":
+                self.out["tags"].append(rest)
+            else:
+                self.out[what].append([owner, *rest])
+
+    def _tags(self, root) -> list[tuple]:
+        text = languages.tags_query(self.lang)
+        query = self._QUERIES.get(text) or self._QUERIES.setdefault(text, ts.Query(get_language(self.lang), text))
+        defs: dict[tuple[int, int], list] = {}
+        refs = []
+        for _, caps in ts.QueryCursor(query).matches(root):
+            names = caps.get("name")
+            if not names:
+                continue
+            nm = names[0]
+            for tag, nodes in caps.items():
+                if tag.startswith("definition."):
+                    kind, key = tag[11:], (nm.start_byte, nm.end_byte)
+                    if key not in defs:
+                        n = nodes[0]
+                        defs[key] = [n.start_byte, n.end_byte, "def", self.text(nm), kind, self.line(n), n]
+                    elif kind == "method":  # one function captured as both, as Rust's query does
+                        defs[key][4] = kind
+                elif tag.startswith("reference."):
+                    refs.append((tag[10:], nodes[0], nm))
+        events = [tuple(d) for d in defs.values()]
+        skip = languages.NOT_CALLS.get(self.lang, frozenset())
+        attribute = languages.ATTRIBUTES.get(self.lang)
+        for kind, node, nm in refs:
+            if (nm.start_byte, nm.end_byte) in defs:  # a definition's own name, such as an Elixir function head
+                continue
+            name = self.text(nm)
+            if kind == "implementation":
+                typ = node.child_by_field_name("type")
+                while typ is not None and typ.child_by_field_name("type") is not None:  # impl<T> Order<T>
+                    typ = typ.child_by_field_name("type")
+                events.append((node.start_byte, node.end_byte, "impl", self.text(typ) if typ is not None else name))
+            if kind == "call":
+                if name not in skip and not (attribute and self._inside(node, *attribute)):
+                    events.append(
+                        (nm.start_byte, nm.start_byte, "calls", name, self._receiver(nm, node), self.line(nm))
+                    )
+            elif kind in ("class", "type", "module", "interface", "implementation"):
+                events.append((nm.start_byte, nm.start_byte, "refs", name, self._receiver(nm, node), self.line(nm)))
+        return events
+
+    def _inside(self, node, typ: str, token: bytes) -> bool:
+        cur = node.parent
+        while cur is not None:
+            if cur.type == typ and self.src.startswith(token, cur.start_byte):
+                return True
+            cur = cur.parent
+        return False
+
+    def _receiver(self, nm, ref) -> str:
+        """What is written before the name inside the expression that holds it: `bc` in `bc.charge(o)`."""
+        cur = nm
+        for _ in range(3):
+            par = cur.parent
+            if par is None:
+                return ""
+            before = None
+            for c in par.named_children:
+                if c.start_byte >= cur.start_byte:
+                    break
+                before = c
+            if before is not None:
+                txt = self.text(before)
+                return txt if len(txt) <= 120 and self.SIMPLE.fullmatch(txt) else "?"
+            if par.id == ref.id or par.named_child_count > 1:  # climb only through a wrapper, as Kotlin's suffix
+                return ""
+            cur = par
+        return ""
+
+    def _params(self, node) -> list[str]:
+        params = node.child_by_field_name("parameters")
+        if params is None:
+            params = next((c for c in node.named_children if "parameter" in c.type), None)
+        names = []
+        for c in params.named_children if params is not None else []:
+            n = c if "identifier" in c.type else c.child_by_field_name("name") or c.child_by_field_name("pattern")
+            if n is None:
+                n = next((x for x in c.named_children if "identifier" in x.type), None)
+            if n is not None and "identifier" in n.type:
+                names.append(self.text(n))
+        return names
+
+    def _scan(self, root) -> list[tuple]:
+        """Import statements, and ticket tags in strings, in one walk of the tree."""
+        types, heads, parse_import = languages.IMPORTS.get(self.lang, ((), None, None))
+        events = []
+        cur = root.walk()
+        while True:
+            node = cur.node
+            t = node.type
+            if t in types and (heads is None or self.src.startswith(heads, node.start_byte)):
+                for row in parse_import(self.text(node)):
+                    self.out["imports"].append([*row, self.line(node)])
+            elif ("string" in t or t == "quoted_content") and not any("string" in c.type for c in node.named_children):
+                txt = self.text(node).strip("\"'`")
+                if txt.startswith("@"):
+                    events += [
+                        (node.start_byte, node.start_byte, "tags", tag, self.line(node)) for tag in TAG_RE.findall(txt)
+                    ]
+            if cur.goto_first_child():
+                continue
+            while not cur.goto_next_sibling():
+                if not cur.goto_parent():
+                    return events
+
+    def _env(self) -> list[tuple]:
+        pat = languages.ENV.get(self.lang)
+        events = []
+        for m in pat.finditer(self.src) if pat is not None else []:
+            events.append((m.start(), m.start(), "env", m.group(1).decode(), self.src.count(b"\n", 0, m.start()) + 1))
+        return events

@@ -25,6 +25,11 @@ ref  = "main"                # read at origin/<ref>
 # [extractors]
 # pilet_routing = "extractors/pilet_routing.py"  # router(ctx, repo) -> (operation name -> engine or None)
 
+# [languages]                # unset: Ruby, TypeScript and every language with a tags query (docs/LANGUAGES.md)
+# exclude = ["c", "cpp"]     # languages not to read, by the grammar pack's name
+# include = ["python", "go"] # read only these, besides Ruby and TypeScript
+#                            # queries/<language>/tags.scm in this folder adds a language or replaces its query
+
 [skip]
 dirs = []                    # folders under root that are not repos, e.g. a worktree
 

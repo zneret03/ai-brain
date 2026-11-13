@@ -16,7 +16,11 @@ EDGES = (
     "SUBSCRIBES ENQUEUES CALLS_EXTERNAL DEPENDS_ON BUILT_FROM CITES TESTS TAGGED CHANGED TALKS_TO PLANS"
 ).split()
 
-TEST_PATH = re.compile(r"(^|/)spec/.*_spec\.rb$|\.test\.[jt]sx?$|(^|/)__tests__/|(^|/)tests/.*\.spec\.ts$")
+TEST_PATH = re.compile(
+    r"(^|/)spec/.*_spec\.rb$|\.test\.[jt]sx?$|(^|/)__tests__/|(^|/)tests/.*\.spec\.ts$"
+    r"|(^|/)(test_[^/]*|conftest)\.py$|_test\.(py|go|exs)$|(^|/)tests?/.*\.(py|rs|exs)$"
+    r"|(^|/)src/test/.*\.(java|kt)$|(Test|Tests|IT)\.(java|kt)$"
+)
 SELF_LOOPS = {"FOREIGN_KEY", "ASSOCIATES"}  # a table keyed to itself (parent_id) is a real edge
 _SPLIT = re.compile(r"[A-Z]+(?=[A-Z][a-z])|[A-Z]?[a-z]+|[A-Z]+|\d+")
 
