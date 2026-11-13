@@ -1,0 +1,76 @@
+#!/usr/bin/env bash
+# Plans, dev reports, hunt reports and bugs live in ai-brain/sprints/, which is gitignored: each dev's own,
+# never committed or pushed. edit makes a sprint's folders on first use (docs/SPRINTS.md).
+#
+#   bin/plan-doc path <KEY>                      the plan's path, newest sprint first
+#   bin/plan-doc show <KEY>                      the plan
+#   bin/plan-doc edit <sprints/…/x.md>           the file to edit; its folders are made when missing
+#   bin/plan-doc import [--force] [<path>…]      copy plans from $PLAN_DOC_ARCHIVE (default: every sprints/*/plan/*.md)
+#   bin/plan-doc --help                          this text
+set -euo pipefail
+ORCH="$(cd "$(dirname "$0")/.." && pwd)"
+DOCS="${PLAN_DOC_ARCHIVE:-}"  # a checkout of an older plans repo, for import
+
+die() { echo "plan-doc: $*" >&2; exit 1; }
+usage() { awk 'NR==1{next} /^#/{sub(/^# ?/,""); print; next} {exit}' "$0"; }
+sprints_only() { case "$1" in sprints/*.md | sprints/*.html) ;; *) die "$1: only .md or .html files under sprints/" ;; esac; }
+
+cmd_path() {
+  local key="${1:?plan-doc path <KEY>}" hit
+  key="${key^^}"
+  hit=$(cd "$ORCH" && ls -d sprints/*/plan/"$key".md 2>/dev/null | sort -t/ -k2,2V | tail -1 || true)
+  [ -n "$hit" ] || exit 1
+  echo "$hit"
+}
+
+cmd_show() {
+  local p; p=$(cmd_path "${1:?plan-doc show <KEY>}") || die "no plan for $1"
+  cat "$ORCH/$p"
+}
+
+cmd_edit() {
+  local p="${1:?plan-doc edit <sprints/…/x.md>}"
+  sprints_only "$p"
+  mkdir -p "$ORCH/$(dirname "$p")"
+  echo "$ORCH/$p"
+}
+
+cmd_import() {
+  local force=0
+  [ "${1:-}" = "--force" ] && { force=1; shift; }
+  [ -n "$DOCS" ] && [ -d "$DOCS/.git" ] || die "no plans archive: set PLAN_DOC_ARCHIVE to its checkout"
+  local paths=() p c done=()
+  if [ $# -gt 0 ]; then paths=("$@"); else
+    mapfile -t paths < <(git -C "$DOCS" log --branches --remotes=origin --format= --name-only -- 'sprints/*/plan/*.md' | sort -u)
+  fi
+  for p in "${paths[@]}"; do
+    sprints_only "$p"
+    c=""
+    while read -r cand; do  # newest commit on any branch that still holds the file; stashes are not branches
+      git -C "$DOCS" cat-file -e "$cand:$p" 2>/dev/null && { c=$cand; break; }
+    done < <(git -C "$DOCS" log --branches --remotes=origin --format=%H -- "$p")
+    if [ -z "$c" ]; then echo "skip    $p: on no branch of the archive"; continue; fi
+    if [ -f "$ORCH/$p" ] && [ "$force" = 0 ]; then
+      echo "skip    $p: already in sprints/ (--force replaces it)"; continue
+    fi
+    mkdir -p "$ORCH/$(dirname "$p")"
+    git -C "$DOCS" show "$c:$p" >"$ORCH/$p"
+    echo "import  $p from $(git -C "$DOCS" log -1 --format='%h %cs %an' "$c")"
+    done+=("$p")
+  done
+  git -C "$DOCS" status --porcelain -- sprints/ | while read -r st f; do
+    local again="plan-doc import $f"
+    [ -f "$ORCH/$f" ] && again="plan-doc import --force $f"
+    echo "left    $f: $st in the archive checkout; commit it there, then $again"
+  done
+  [ ${#done[@]} -gt 0 ] || { echo "nothing imported"; return; }
+  echo "imported ${#done[@]} plans into sprints/"
+}
+
+verb="${1:-}"
+shift || true
+case "$verb" in
+  path | show | edit | import) "cmd_$verb" "$@" ;;
+  -h | --help | help) usage ;;
+  *) usage >&2; exit 2 ;;
+esac

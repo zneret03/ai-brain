@@ -1,18 +1,18 @@
-# Your own plans, reviews, hunt reports and bugs: they never leave your machine.
+# Your own plans, reviews, hunt reports and bugs: the first /plan makes the folder; never published.
 /sprints/
 
-# Local instructions and harness files for your own workspace, never published.
+# Your workspace's product facts, read by the skills; profile.example/ shows the shape.
+/profile/
+
+# Local, untracked instructions for your own setup.
 /CLAUDE.local.md
-/.claude/agents/
-/.claude/commands/
-/.claude/workflows/
-/.claude/skills/*
-!/.claude/skills/ai-brain/
-/docs/*
-!/docs/AI_BRAIN.md
-!/docs/images/
-/bin/plan-doc
+
+# Your projects: copy ai-brain/projects/_template/ to make one.
 /ai-brain/projects/*
 !/ai-brain/projects/_template/
+
+# Evals run against your own workspace.
 /ai-brain/tests/eval/
-/ai-brain/tests/test_plan_doc.py
+
+# Python bytecode anywhere in the tree.
+__pycache__/

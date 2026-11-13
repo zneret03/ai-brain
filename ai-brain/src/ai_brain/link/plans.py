@@ -40,8 +40,8 @@ def link(ctx: Ctx) -> None:
 
 
 def _home_docs(k, sha: str) -> dict[str, tuple[str, str | None]]:
-    """The harness's docs/ at main, local or origin, whichever is ahead; docs/ waits for its merge. sprints/ from disk:
-    it is gitignored, each dev's own, so /dev reads what /plan wrote minutes ago on any branch (sprints/README.md)."""
+    """The harness's docs/ at main, local or origin, whichever is ahead; docs/ waits for its merge. sprints/ and the
+    profile/ pages from disk: both are gitignored, each dev's own, so /dev reads what /plan wrote minutes ago."""
     listing = [
         (p, b)
         for p, b, size in files.ls_tree(k.path, sha)
@@ -53,6 +53,8 @@ def _home_docs(k, sha: str) -> dict[str, tuple[str, str | None]]:
         if f.is_file():
             day = time.strftime("%Y-%m-%d", time.localtime(f.stat().st_mtime))
             docs[f.relative_to(k.path).as_posix()] = (f.read_text("utf-8", "replace"), day)
+    for f in (k.path / "profile").glob("*.md"):  # the workspace's product facts the skills read
+        docs[f.relative_to(k.path).as_posix()] = (f.read_text("utf-8", "replace"), None)
     return docs
 
 

@@ -3,7 +3,8 @@
 A cross-repo code graph for coding agents. ai-brain reads every repo in a workspace at `origin/<ref>`, links what
 the code states (GraphQL fields and operations, routes, Kafka topics, tables, jobs, frontend pages, tests, plans
 and notes) into Neo4j, and answers a question in a few lines of `repo/path:line` instead of a grep across every
-repo. It ships a CLI, a Claude Code skill (`/ai-brain`) and an edit hook.
+repo. It ships a CLI and an edit hook, and a Claude Code harness built on them: five skills, a command and six
+agents that plan, build, review, bug-hunt and demo a ticket across the repos ([The harness](#the-harness)).
 
 ```
 ai-brain/bin/ai-brain surface order queue                      # interfaces by name
@@ -47,7 +48,8 @@ tracker, a database's rows or a running app.
 - git, Python 3.12 or newer, and curl.
 - Docker Engine with the compose plugin. On Ubuntu or WSL2, `ai-brain/ai-brain/setup/install-docker.sh` installs it.
 - For Rails facts: the app's Ruby through [mise](https://mise.jdx.dev) and its database running.
-- Claude Code, for the `/ai-brain` skill and the hooks. The CLI works without it.
+- Claude Code, for the skills, the agents and the hooks. The CLI works without it. The harness needs a few more
+  tools: [What the skills need](#what-the-skills-need).
 
 ## Quick start
 
@@ -69,12 +71,13 @@ tracker, a database's rows or a running app.
    ```
 
 3. Start everything: `ai-brain/bin/ai-brain-up`. It checks Docker, creates the venv and `.env`, starts Neo4j,
-   applies the schema, fetches, indexes every repo, links the `/ai-brain` skill into `my-workspace/.claude/`,
-   and runs `doctor`. It is safe to re-run, and later runs index only what moved.
+   applies the schema, fetches, indexes every repo, links the skills, agents and command into
+   `my-workspace/.claude/`, and runs `doctor`. It is safe to re-run, and later runs index only what moved.
 4. Ask it: `ai-brain/bin/ai-brain surface <words>`, or `/ai-brain` in a Claude Code session started at
    `my-workspace/`.
 5. Once per machine, add the SessionStart hook in [docs/AI_BRAIN.md](docs/AI_BRAIN.md) (Keeping it current), so
    every session starts Neo4j when it is down and re-indexes in the background what moved.
+6. For the harness, copy `ai-brain/profile.example/` to `ai-brain/profile/` and fill it ([The profile](#the-profile)).
 
 `ai-brain/bin/help` lists every script, and each script and each verb takes `--help`.
 
@@ -135,8 +138,8 @@ to the project whose `root` holds the current directory.
   `origin/<ref>`; anything else is fetched and left exactly as it is.
 - **Only what moved is written.** One index runs at a time; later runs parse what changed and boot Rails again only
   when a path that carries facts changed (routes, GraphQL, models, policies, jobs, Kafka, `db/`, a lockfile).
-- **A `sprints` repo's `sprints/` is the exception**: it is meant to be gitignored, each person's own, and is read
-  from disk on every index.
+- **A `sprints` repo's `sprints/` and `profile/` are the exception**: both are meant to be gitignored, each
+  person's own, and are read from disk on every index.
 - **Facts hold names and paths only**: never a table row, an `.env` value or a credential.
 
 ## Knowledge repos
@@ -158,7 +161,8 @@ All three kinds are optional.
   ---
   ```
 
-- **`sprints`**: plan documents, one folder per sprint, read from disk, plus the repo's `docs/` pages at `main`.
+- **`sprints`**: plan documents, one folder per sprint, read from disk, plus the repo's `docs/` pages at `main`
+  and its `profile/*.md` pages from disk.
   `ticket`, `sprint`, `gaps`, `history` and `related` answer from them:
 
   ```
@@ -180,11 +184,67 @@ claim in a plan, a review or a pull request. The full contract is [docs/AI_BRAIN
 
 ## Claude Code
 
-- **The skill.** `ai-brain/bin/install.sh` links `.claude/skills/ai-brain/` into the workspace root's `.claude/`
-  (`--copy`, `--status` and `--uninstall` too), and `ai-brain-up` runs it. A session started at the workspace root
-  then asks the brain before it greps.
+- **The skills and agents.** `ai-brain/bin/install.sh` links every skill, agent, command and workflow in
+  `.claude/` into the workspace root's `.claude/` (`--copy`, `--status` and `--uninstall` too), and `ai-brain-up`
+  runs it. A session started at the workspace root then asks the brain before it greps.
 - **The hooks.** A SessionStart hook keeps it current, and a PostToolUse hook shows Claude a file's card after an
   edit to a file that crosses a boundary. Both are in [docs/AI_BRAIN.md](docs/AI_BRAIN.md).
+
+## The harness
+
+Five skills, one command and six agents, linked into the workspace root's `.claude/` by `ai-brain/bin/install.sh`.
+Each asks the brain before it greps, and reads your workspace's facts from `ai-brain/profile/` (below).
+
+| Piece | What it does |
+| --- | --- |
+| `/plan <KEY>` | reads the ticket, its parent and its siblings; maps the files with the brain and has backend and frontend agents verify the map; asks what it could not settle; cuts the ticket branches and writes `sprints/<sprint>/plan/<KEY>.md`. No code |
+| `/dev <KEY>` | builds the plan's action items in order, each with its test; runs the gates; clicks the change through on the local stack as each persona, then hunts the edge cases; records before and after evidence; opens paired PRs on a yes |
+| `/branch-review <KEY>` | reviews every branch a ticket has through the brain: what the diff reaches, scoped checks, a Rails lane and a React lane, findings by reason; writes a review round to `sprints/`, posts to GitHub only on a yes |
+| `/qa-demo` | for the tickets at the tracker's QA gate, records a replication video on the shared environment with a visible cursor, and posts it as one comment per ticket |
+| `/ai-brain` | the brain's verbs, for any cross-repo question |
+| `/bug-hunt` | the command: serial Playwright hunters over what the diff reaches, the developer fixes what they find, a hunter re-drives every fix; writes the evidence folder whether or not anything broke |
+| agents | `project-manager`, `developer`, `qa-backend`, `qa-frontend`, `qa-design`, `qa-e2e`. `/bug-hunt` runs `developer`, `/branch-review` runs `qa-backend` and `qa-frontend`, the rest run ad hoc |
+
+The flow and its rules (branching, the browser check, what `/dev` never does) are in [CLAUDE.md](CLAUDE.md).
+
+### The profile
+
+The skills hold the workflow; your workspace's facts live in `ai-brain/profile/`, which is gitignored. Copy the
+example and fill each page; [profile.example/README.md](profile.example/README.md) says what each one holds:
+
+```
+cp -r ai-brain/profile.example ai-brain/profile
+```
+
+| Page | Holds |
+| --- | --- |
+| `REPOS.md` | the repos, base branches, branch and PR rules, gate commands, codegen |
+| `MICROSERVICES.md` | the services, what each owns, how they talk |
+| `DEFINITIONS.md` | personas, statuses and domain terms |
+| `GRAPHQL_SURFACES.md` | where the queries and mutations live |
+| `CODE_MAP.md` | per-layer paths, contract files, where shared code lives, conventions |
+| `STACK.md` | entry points, the frontend feed, preflight checks, test data |
+| `TRACKER.md` | the tracker's site and board, the current sprint, the ticket family, QA gates, how to write to it |
+| `E2E.md` | the e2e suite and its evidence folder |
+| `QA.md` | the shared environment, sign-in, data lookups, recording |
+| `LESSONS.md` | what your tickets and reviews taught |
+
+A skill that needs a page you have not filled says which one. The brain reads these pages from disk on every
+index, so `notes <file>` finds a profile page that cites a file.
+
+### sprints/
+
+Plans, Dev reports, review rounds, hunt reports and bugs live in `ai-brain/sprints/<sprint>/`, gitignored and each
+developer's own. A fresh clone has none: the folder appears when `/plan` writes its first plan
+(`ai-brain/bin/plan-doc edit` makes it). The layout is in [docs/SPRINTS.md](docs/SPRINTS.md).
+
+### What the skills need
+
+- Claude Code, with sessions started at the workspace root.
+- The `gh` CLI, signed in, for branches, PRs and review comments.
+- A Jira connection through Claude's Atlassian connector, for `/plan`, `/dev`, `/branch-review` and `/qa-demo`.
+- Playwright, through the workspace's e2e repo (`profile/E2E.md`), for `/bug-hunt` and `/qa-demo`.
+- The Figma connector, for `qa-design`.
 
 ## Seeing the graph
 
@@ -213,7 +273,7 @@ Neo4j Browser at http://localhost:7474, user `neo4j`, the password in `ai-brain/
 
 ## Working on ai-brain
 
-See [CLAUDE.md](CLAUDE.md): the venv, the tests and the change discipline.
+See [CLAUDE.md](CLAUDE.md): the flow, the venv, the tests, the change discipline and the branching rule.
 
 ## License
 

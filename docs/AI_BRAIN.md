@@ -22,11 +22,12 @@ It holds the repos listed in `ai-brain/ai-brain/projects/<name>/project.toml`, e
 | `e2e` | an end-to-end suite; `@PROJ-123` tags in its tests link specs to tickets |
 
 And knowledge repos, each with a kind: `notes` (notes whose frontmatter `sources[]` name code), `sprints` (the
-plans, reports, bugs and review rounds in its `sprints/`, read from disk, plus its `docs/` pages at `main`), and
+plans, reports, bugs and review rounds in its `sprints/`, read from disk, plus its `docs/` pages at `main` and
+its `profile/*.md` pages from disk), and
 `plans` (an archive of older plans, read from every branch head). A plan's Files to touch become `PLANS` edges,
 its Dev report's Files changed `CHANGED` edges, and its parity and action-item tables its open gaps and items.
-Every `repo/path:line` that a plan, a review or a `docs/` page cites becomes a `CITES` edge, so `notes <file>`
-lists the notes and past reviews that name a file. With `[tickets] prefix` set, git adds who committed each
+Every `repo/path:line` that a plan, a review, a `docs/` page or a `profile/` page cites becomes a `CITES` edge, so
+`notes <file>` lists the notes, past reviews and profile pages that name a file. With `[tickets] prefix` set, git adds who committed each
 ticket's work. The edge types are listed in `ai-brain/ai-brain/src/ai_brain/model/__init__.py`, `EDGES`.
 
 It draws an edge only where the code states one. A Ruby call on a receiver of unknown class gets an edge only
@@ -95,6 +96,10 @@ From a plan it reads:
 - `## Dev report`, which marks the plan built, with `### Summary` and `### Files changed`;
 - pull requests, as `github.com/<owner>/<repo>/pull/<n>` or `<repo>#<n>` for a registered repo.
 
+The same repo's `profile/*.md` pages, the workspace's facts the skills read (`profile.example/` shows them), are
+gitignored too. Every index reads them from disk as doc notes, alongside `sprints/` (`link/plans.py`,
+`_home_docs`), so a profile page that cites a file shows up in `notes <file>`.
+
 ## Using it from a skill or an agent
 
 - Start with `ai-brain fresh`: one header line. It starts Neo4j when it is down and re-indexes in the background
@@ -102,6 +107,12 @@ From a plan it reads:
 - Ask a verb before Grep, Glob or Read; open what it points to; grep for what it answered `none`.
 - After writing a plan, run `ai-brain index --background`, so the next `ticket <KEY>` sees it.
 - At the end of a build, run `ai-brain index --pull --background`, so the next session reads what this one built.
+- How the harness uses it: `/plan` starts with `fresh`, `ticket` and `notes`, maps the files with the brain, and
+  ends with `index --background`. `/dev` reads `ticket <KEY>`, asks `find`, `impact` and `history` before it
+  writes, checks `impact --diff` in its self-review before it ships, and ends with
+  `index --pull --background`. `/branch-review`
+  starts from `impact --diff <repo>@<tip>` and stops with the error when the brain does not answer: it never
+  reviews blind. `/bug-hunt` and `/qa-demo` read the ticket with `ticket <KEY>`.
 - The edit hook, `ai-brain/bin/ai-brain-hook`, shows Claude a file's card once per session after an edit to a
   file that crosses a boundary. Register it in a skill's frontmatter or in `.claude/settings.json`:
 

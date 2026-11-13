@@ -19,7 +19,7 @@ starts a background re-index when a repo moved. Then use a verb:
 | `impact --diff <repo>...` | Consumers of what your branch changed that sit outside every listed diff. `<repo>` is the checkout as it stands; `<repo>@<ref>` a branch's commits wherever the checkout sits; `<repo>@<base>...<ref>` a stacked branch | `impact --diff monorepo@origin/you/proj-123-v1 web-app` |
 | `consumers <target>` | Only the direct consumers | `consumers OrderQueue` |
 | `trace <target>` | UI to operation to resolver to model to table; producer to topic to consumer | `trace Order.status` |
-| `notes <file or words>` | Notes, plans, review rounds and `docs/` pages that cite a file, each ok, moved or gone | `notes src/helpers/dateFormat.ts` |
+| `notes <file or words>` | Notes, plans, review rounds, `docs/` pages and `profile/` pages that cite a file, each ok, moved or gone | `notes src/helpers/dateFormat.ts` |
 | `ticket <KEY>` | One ticket: its plan, files to touch, services, open gaps and items, branches and who holds them, commits and who made them, PRs, Dev report, related tickets | `ticket PROJ-123` |
 | `sprint [<slug>\|all]` | A sprint's tickets with state, gaps and file counts, then files two plans both touch; `all` lists sprints | `sprint 2026-s1` |
 | `gaps [<KEY>\|<slug>]` | Open gaps (a gap row whose closing items are not all done) and open action items | `gaps PROJ-123` |

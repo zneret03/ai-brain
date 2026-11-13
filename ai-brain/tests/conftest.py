@@ -250,7 +250,8 @@ def workspace(tmp_path_factory):
             "sprints/s2/reviews/PROJ-2.md": "# PROJ-2 — branch review\n\n## Round 1\n\n"
             "1. Request changes: `pilet/src/pages/ThingsPage.tsx:1` drops the empty state.\n",
             "docs/GUIDE.md": "# GUIDE — how orders are kept\n\nOne model, `apps/app/app/models/order.rb:1`.\n",
-            ".gitignore": "/sprints/\n",  # as in a real sprints repo: sprints/ stays untracked
+            "profile/STACK.md": "# STACK — how the app runs\n\nThe app's model, `apps/app/app/models/order.rb:1`.\n",
+            ".gitignore": "/sprints/\n/profile/\n",  # as in a real sprints repo: both stay untracked
         },
     )
     (root / "orch" / "sprints" / "s2" / "plan" / "PROJ-3.md").write_text("# PROJ-3 — drafted, not committed\n")

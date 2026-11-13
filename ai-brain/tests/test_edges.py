@@ -108,6 +108,7 @@ def test_reviews_and_harness_docs_cite_whole_paths(built):
     cites = {(s.split(":note:orch:")[-1], d.split(":", 1)[-1], p.get("line")) for s, d, p in _edges(g, "CITES")}
     assert ("sprints/s2/reviews/PROJ-2.md", "pilet:src/pages/ThingsPage.tsx", 1) in cites  # .tsx, not cut to .ts
     assert ("docs/GUIDE.md", "mono:apps/app/app/models/order.rb", 1) in cites
+    assert ("profile/STACK.md", "mono:apps/app/app/models/order.rb", 1) in cites  # gitignored, read from disk
     assert g.nodes[f"{g.project}:note:orch:sprints/s2/reviews/PROJ-2.md"][1]["kind"] == "review"
 
 
