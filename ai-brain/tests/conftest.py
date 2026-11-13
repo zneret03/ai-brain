@@ -617,8 +617,28 @@ POLY = {
 }
 POLY["web"] = {
     "src/orders.ts": "import { gql } from '@apollo/client';\n\nexport const ORDER = gql`\n  query Order {\n"
-    "    order(id: 1) {\n      total\n    }\n  }\n`;\n",
+    "    order(id: 1) {\n      total\n    }\n  }\n`;\n\n"
+    "export function loadOrder(id: string) {\n  return fetch(`/v1/orders/${id}`);\n}\n",
+    "src/invoice.graphql": "query Invoice {\n  invoice(id: 1) {\n    amount\n  }\n}\n",
+    "src/schema.graphql": "type Query {\n  copied: Int\n}\n",  # a frontend's copy of a schema, not its own
 }
+# Contract files (A12): a Go service's OpenAPI spec, an Elixir service's schema file, and a test's copy of one.
+POLY["goapp"]["api/openapi.yaml"] = """
+    openapi: 3.0.0
+    servers:
+      - url: https://shop.example.com/v1
+    paths:
+      /orders/{id}:
+        get:
+          operationId: Total
+      /charges:
+        post:
+          summary: Charge an order
+"""
+POLY["exapp"]["priv/schema.graphql"] = (
+    "type Query {\n  invoice(id: ID!): Invoice\n}\n\ntype Invoice {\n  amount: Int\n}\n"
+)
+POLY["exapp"]["test/support/schema.graphql"] = "type Fake {\n  x: Int\n}\n"
 # The facts command a stack other than Rails supplies: rows naming symbols as {file, symbol} (A10).
 FACTS = """
 import json, sys
@@ -639,6 +659,7 @@ rows = [
 with open(out, "w") as fh:
     fh.write("\\n".join(json.dumps(r) for r in rows) + "\\n")
 """
+ROLES = {"pymono": "monorepo", "web": "pilet"}
 BASH_TAGS = """
 (function_definition name: (word) @name) @definition.function
 (command name: (command_name (word) @name)) @reference.call
@@ -665,9 +686,7 @@ def poly_built(tmp_path_factory):
     (projects / "poly" / "extractors").mkdir()
     (projects / "poly" / "extractors" / "facts.py").write_text(FACTS)
     command = json.dumps([sys.executable, "{project}/extractors/facts.py", "{out}", "{root}"])
-    repos = "".join(
-        f'[[repos]]\nname = "{n}"\nrole = "{"monorepo" if n == "pymono" else "app"}"\nref = "main"\n' for n in POLY
-    )
+    repos = "".join(f'[[repos]]\nname = "{n}"\nrole = "{ROLES.get(n, "app")}"\nref = "main"\n' for n in POLY)
     facts = f'[[facts]]\nname = "shop"\napp = "pyapp"\ncommand = {command}\n'
     (projects / "poly" / "project.toml").write_text(f'[project]\nname = "poly"\nroot = "{root}"\n{repos}{facts}')
     patch = pytest.MonkeyPatch()

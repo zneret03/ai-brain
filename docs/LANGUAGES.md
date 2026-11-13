@@ -101,6 +101,18 @@ Import resolution, env reads and test files for a seventh language take a row in
   `build.gradle`, `build.gradle.kts`) is a component, beside `apps/*` and `gems/*`. `[monorepo] roots` adds more
   folders, with their kind: `roots = { pilets = "pilet" }`.
 
-## Planned, not built
+## Contract files
 
-- **Contracts in no particular language.** GraphQL schema files and OpenAPI files become interfaces.
+A contract a component keeps in a file is read whatever the component is written in:
+
+| File | Becomes |
+|---|---|
+| GraphQL schema (`.graphql`, `.graphqls`, `.gql` holding type definitions) | the component's `graphql_type` and `graphql_field` interfaces, declared at their lines; frontend operations are matched against them |
+| GraphQL operations (`.graphql` holding queries, mutations or fragments), in any repo | `graphql_operation` interfaces, matched like `gql` documents in code |
+| OpenAPI 3 or Swagger 2 (`openapi*.yaml`, `swagger*.json`, `*.openapi.yml` and the like) | a `route` for each path and method, declared at its line, under the spec's `basePath` or first server path, with `{id}` written `:id`; frontend `fetch` paths match it, and the one definition in the component named as its `operationId` handles it, inferred |
+
+A file that is a copy of someone else's contract is left out: a snapshot named in `[[graphql.snapshots]]`, a file in
+a pilet, shell or e2e component, one under `spec/`, `test/`, `tests/`, `__tests__/`, `fixtures/` or `examples/`, and
+one outside every component. A component whose schema comes from a facts command keeps that one, because the
+running app is the authority and its files are dumps of it. With no `[extractors] pilet_routing`, an operation goes
+to the workspace's one schema, or with several, to the one schema whose root type has every field it starts at.

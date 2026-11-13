@@ -1,9 +1,19 @@
-"""Mounts and routes from the booted router, with the flags their constraints check (A7)."""
+"""Mounts and routes from the booted router, with the flags their constraints check (A7); routes from each
+component's OpenAPI and Swagger files (A12)."""
 
 from __future__ import annotations
 
+import re
+from collections import defaultdict
+from urllib.parse import urlparse
+
+import yaml
+
 from . import Ctx
 from .code import primary_def
+
+SPEC = re.compile(r"(^|/)(?:(?:openapi|swagger)(?:[._-][^/]*)?|[^/]+\.(?:openapi|swagger))\.(?:ya?ml|json)$", re.I)
+METHODS = ("get", "put", "post", "delete", "patch", "options", "head", "trace")
 
 
 def camelize(path: str) -> str:
@@ -57,6 +67,75 @@ def link(ctx: Ctx) -> None:
         for gate in row.get("gates", []):
             for flag in gate.get("flags", []):
                 g.edge("GATED_BY", rid, g.iface("flag", flag), src=gate["src"])
+    _openapi(ctx)
+
+
+def _openapi(ctx: Ctx) -> None:
+    """Each path and method of a component's OpenAPI or Swagger file: a route declared at its line and owned by the
+    component, handled by the one definition there named as its operationId, inferred."""
+    g, named = ctx.g, {}
+    for repo in ctx.parsed:
+        for path in sorted(p for p in ctx.paths(repo) if SPEC.search(p)):
+            unit = ctx.contract_unit(repo, path)
+            text = (ctx.text(repo, path) or "") if unit else ""
+            try:
+                spec = yaml.safe_load(text) if text.strip() else None
+            except yaml.YAMLError as exc:  # a spec that does not parse is left out, with a note
+                ctx.notes.append(f"openapi {repo}/{path}: {str(exc)[:100]}")
+                continue
+            if not isinstance(spec, dict) or not {"openapi", "swagger"} & spec.keys():
+                continue
+            if unit.name not in named:
+                named[unit.name] = _named(ctx, unit.name)
+            base, lines = _base_path(spec), text.splitlines()
+            for route, ops in (spec.get("paths") or {}).items():
+                line = _key_line(lines, str(route))
+                for method, op in ops.items() if isinstance(ops, dict) else []:
+                    if method.lower() not in METHODS:
+                        continue
+                    verb, op = method.upper(), op if isinstance(op, dict) else {}
+                    full = "/" + "/".join(x.strip("/") for x in (base, str(route)) if x.strip("/"))
+                    rpath = re.sub(r"\{([^}/]+)\}", r":\1", full)  # /orders/{id} as the routers write it: /orders/:id
+                    rid = g.iface(
+                        "route",
+                        f"{verb} {rpath}",
+                        verb=verb,
+                        path=rpath,
+                        owner=unit.name,
+                        operation_id=op.get("operationId"),
+                        line=line,
+                    )
+                    g.edge("DECLARES", g.file_id(repo, path), rid, line=line)
+                    ctx.routes.append((rid, verb, rpath, unit.name))
+                    ids = named[unit.name].get(str(op.get("operationId") or ""), [])
+                    if len(ids) == 1:
+                        g.edge("HANDLED_BY", rid, ids[0], inferred=True)
+
+
+def _named(ctx: Ctx, unit: str) -> dict[str, list[str]]:
+    out: dict[str, list[str]] = defaultdict(list)
+    for nid, (labels, props) in ctx.g.nodes.items():
+        if "Symbol" in labels and props.get("unit") == unit:
+            out[props["short"]].append(nid)
+    return out
+
+
+def _base_path(spec: dict) -> str:
+    """The path every route sits under: Swagger's basePath, or the path of OpenAPI's first server URL."""
+    if spec.get("basePath"):
+        return str(spec["basePath"])
+    servers = spec.get("servers") or []
+    url = (
+        str(servers[0].get("url") or "")
+        if isinstance(servers, list) and servers and isinstance(servers[0], dict)
+        else ""
+    )
+    return url if url.startswith("/") else urlparse(url).path
+
+
+def _key_line(lines: list[str], key: str) -> int:
+    pattern = re.compile(rf"^\s*[\"']?{re.escape(key)}[\"']?\s*:")
+    return next((i + 1 for i, text in enumerate(lines) if pattern.match(text)), 0)
 
 
 def _handler(ctx: Ctx, controller: str | None, action: str | None) -> str | None:

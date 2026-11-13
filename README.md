@@ -36,8 +36,8 @@ It was built for workspaces shaped like this, and reads each part by its role:
   (Apollo);
 - shared libraries, and a Playwright end-to-end suite whose tests carry ticket tags like `@PROJ-123`;
 - services and libraries in other languages, such as Python, Go, Rust, Elixir, Java or Kotlin: their definitions,
-  imports, calls and tests, and in a monorepo the components under `packages/`, `services/`, `libs/`, `crates/` and
-  `cmd/`;
+  imports, calls and tests, their GraphQL schema files and OpenAPI specs, and in a monorepo the components under
+  `packages/`, `services/`, `libs/`, `crates/` and `cmd/`;
 - optionally, a notes repo, and plan documents for the tickets you work on.
 
 It parses Ruby, TypeScript and JavaScript in depth with tree-sitter, and every other language whose grammar ships a
@@ -124,7 +124,7 @@ Every script in `bin/`, with what it is for (`ai-brain/bin/help`):
 | `[externals] from` | a `Gemfile.lock`; its GIT sources that are not cloned here become externals, and a `library` repo is read at the tag it pins |
 | `[rails] app`, `env` | a Rails app under `root`, booted with `bin/rails runner projects/<name>/extractors/rails_introspect.rb` for the facts, in that `RAILS_ENV`; you supply the script |
 | `[[facts]] name`, `app`, `command`, `paths`, `env` | a command that writes an app's routes, GraphQL schema, models, tables, jobs or topics as JSON lines, for any stack; the rows are in [docs/AI_BRAIN.md](docs/AI_BRAIN.md) (Facts from any stack) |
-| `[extractors] pilet_routing` | a Python file in the project folder whose `router(ctx, repo)` returns a function from a frontend operation name to the engine that answers it; unset, with one GraphQL schema in the workspace, every operation goes to it |
+| `[extractors] pilet_routing` | a Python file in the project folder whose `router(ctx, repo)` returns a function from a frontend operation name to the engine that answers it; unset, an operation goes to the one GraphQL schema, or with several, to the one whose root type has its top-level fields |
 | `[monorepo] roots` | more folders whose subfolders holding a manifest are components, each with its kind, e.g. `{ pilets = "pilet" }`; `packages/`, `libs/`, `crates/`, `services/` and `cmd/` always are |
 | `[skip] dirs` | folders under `root` that are not repos, such as a worktree |
 | `[tickets] prefix` | ticket keys look like `PROJ-123`, ticket branches like `you/proj-123-v1`; unset, commits and plan names link to no ticket |

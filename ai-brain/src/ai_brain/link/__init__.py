@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import re
 from collections import defaultdict
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -9,6 +10,9 @@ from pathlib import Path
 from ..config import Project, Unit
 from ..extract import files
 from ..model import Graph
+
+COPIES = re.compile(r"(^|/)(spec|specs|test|tests|__tests__|fixtures|__fixtures__|examples?)/")
+CONSUMERS = {"pilet", "shell", "e2e"}  # components that keep copies of the contracts they call
 
 
 @dataclass
@@ -59,6 +63,14 @@ class Ctx:
     def owner_id(self, repo: str, path: str, qual: str) -> str:
         """The symbol a fact belongs to, or the file when the fact sits at the top level."""
         return self.sym.get((repo, path, qual)) or self.g.file_id(repo, path)
+
+    def contract_unit(self, repo: str, path: str) -> Unit | None:
+        """The component a contract file (a GraphQL schema, an OpenAPI spec) defines, or None for a copy: a
+        snapshot, a test's or an example's, a frontend's, or a file outside every component."""
+        unit = self.unit(repo, path)
+        if unit is None or unit.kind in CONSUMERS or (repo, path) in self.project.snapshots:
+            return None
+        return None if COPIES.search(path) or any(s in "/" + path for s in files.SKIP_PARTS) else unit
 
     def symbol_at(self, ref: dict | None) -> str | None:
         """The symbol a facts row names as {file, symbol}, the way a stack other than Rails names a handler."""
