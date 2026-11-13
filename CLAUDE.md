@@ -125,6 +125,7 @@ bin/pr-images                 uploads the images a PR body names from the eviden
 bin/install.sh                links the .claude/ entries into the workspace root's .claude/
 bin/help                      lists every script here and what it is for; each script takes --help
 docs/AI_BRAIN.md              the brain's contract: what it answers, output, exit codes, the trust rule, set up
+docs/LANGUAGES.md             the languages it parses, what it reads in each, and what is planned for the others
 docs/PLANNING.md              the planning contract: stack scoping, parity + tests, action items, the visualization
 docs/PRACTICES.md             the house rules for planning, writing and reviewing code — KISS and DRY, system
                               design, data and queries, caching, the contract, Rails, React, tests; the brain indexes it

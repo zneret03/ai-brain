@@ -40,7 +40,8 @@ It was built for workspaces shaped like this, and reads each part by its role:
 It parses Ruby, TypeScript and JavaScript with tree-sitter. The Rails facts (routes, the GraphQL schema, models,
 policies, jobs, mounts, Kafka consumers) come from booting the app with a script you supply. It draws an edge
 only where the code states one, so a call through `send`, a callback or a prop has none. It does not read an issue
-tracker, a database's rows or a running app.
+tracker, a database's rows or a running app. What it reads in each language, and what is planned for others, is in
+[docs/LANGUAGES.md](docs/LANGUAGES.md).
 
 ## Requirements
 
