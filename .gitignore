@@ -10,6 +10,7 @@
 !/.claude/skills/ai-brain/
 /docs/*
 !/docs/AI_BRAIN.md
+!/docs/images/
 /bin/plan-doc
 /ai-brain/projects/*
 !/ai-brain/projects/_template/

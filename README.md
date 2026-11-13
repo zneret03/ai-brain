@@ -18,6 +18,13 @@ ai-brain/bin/ai-brain history web-app/src/pages/Orders/Orders.tsx     # the tick
 
 Every line it prints is a lead with a `path:line`: open the file before you build on it.
 
+One ticket's plan, files, gaps, branches and PRs, then a sprint at a glance. These shots, and the graphs under
+[Seeing the graph](#seeing-the-graph), come from a small demo workspace.
+
+![ai-brain/bin/ai-brain ticket PROJ-123](docs/images/cli-ticket.png)
+
+![ai-brain/bin/ai-brain sprint](docs/images/cli-sprint.png)
+
 ## What it fits
 
 It was built for workspaces shaped like this, and reads each part by its role:
@@ -92,6 +99,10 @@ tracker, a database's rows or a running app.
 | `fresh` | starts Neo4j if it is down; re-indexes in the background when a repo moved |
 | `index` | rebuilds the graph: fetch, parse, link, and write only what changed (`--full` from empty) |
 | `cards`, `schema`, `doctor` | re-render the hook's cards, apply Neo4j's constraints, check the setup |
+
+Every script in `bin/`, with what it is for (`ai-brain/bin/help`):
+
+![ai-brain/bin/help](docs/images/cli-help.png)
 
 ## The project file
 
@@ -179,6 +190,11 @@ claim in a plan, a review or a pull request. The full contract is [docs/AI_BRAIN
 
 Neo4j Browser at http://localhost:7474, user `neo4j`, the password in `ai-brain/ai-brain/.env`. Saved views are in
 `ai-brain/ai-brain/views/*.cypher`.
+
+| | |
+|---|---|
+| ![The app, its engines and the external APIs they call](docs/images/neo4j-architecture.png) **Architecture**: the app, its engines and frontends, and the external APIs they call (`architecture.cypher`) | ![One ticket's plan and the files it touches](docs/images/neo4j-ticket.png) **A ticket**: its plan, the files it plans to touch and changed, and the component that owns each (`ticket.cypher`) |
+| ![One operation from the UI to the tables](docs/images/neo4j-operation.png) **An operation end to end**: `OrderQueue`, from the hook that uses it to the tables it reads (`operation-end-to-end.cypher`) | ![Two plans of one sprint on the same file](docs/images/neo4j-sprint-overlap.png) **A sprint's overlap**: two plans that both touch `OrdersPage.tsx` (`sprint.cypher`) |
 
 ## Troubleshooting
 
