@@ -58,6 +58,8 @@ class Project:
     own_hosts: tuple[str, ...] = ()
     snapshots: dict[tuple[str, str], str] = field(default_factory=dict)
     languages: dict[str, list[str]] = field(default_factory=dict)  # [languages] include / exclude
+    facts: list[dict] = field(default_factory=list)  # [[facts]]: name, app, command, paths, env
+    roots: dict[str, str] = field(default_factory=dict)  # [monorepo] roots: folder -> component kind
 
     def repo(self, name: str) -> Repo | None:
         return next((r for r in self.repos + self.knowledge if r.name == name), None)
@@ -102,6 +104,8 @@ def load_project(name: str | None = None, cwd: Path | None = None) -> Project:
         own_hosts=tuple(raw.get("http", {}).get("own_hosts", [])),
         snapshots={(s["repo"], s["path"]): s["engine"] for s in raw.get("graphql", {}).get("snapshots", [])},
         languages=raw.get("languages", {}),
+        facts=raw.get("facts", []),
+        roots=raw.get("monorepo", {}).get("roots", {}),
     )
 
 
@@ -127,8 +131,24 @@ def load_env() -> dict[str, str]:
     return env
 
 
+MANIFESTS = {
+    "pyproject.toml",
+    "setup.py",
+    "mix.exs",
+    "Cargo.toml",
+    "go.mod",
+    "package.json",
+    "pom.xml",
+    "build.gradle",
+    "build.gradle.kts",
+}
+ROOTS = {"packages": "package", "libs": "package", "crates": "package", "services": "service", "cmd": "service"}
+DEPLOYABLE = {"app", "pilet", "shell", "service"}
+
+
 def units(project: Project, ls: dict[str, list[str]]) -> list[Unit]:
-    """Components from the registry and the tracked trees; engines come from gems/*, never a list."""
+    """Components from the registry and the tracked trees; engines come from gems/*, never a list. In a monorepo, a
+    subfolder of packages/, services/, libs/, crates/, cmd/ or a [monorepo] root that holds a manifest is one too."""
     out: list[Unit] = []
     for r in project.repos:
         files = ls.get(r.name, [])
@@ -138,6 +158,13 @@ def units(project: Project, ls: dict[str, list[str]]) -> list[Unit]:
             gemspecs = sorted({p.split("/")[1] for p in files if re.match(r"gems/[^/]+/[^/]+\.gemspec$", p)})
             for gem in gemspecs:
                 out.append(Unit(gem, r.name, f"gems/{gem}/", "engine", False))
+            present = set(files)
+            for root, kind in {**ROOTS, **project.roots}.items():
+                found = {p.split("/")[1] for p in files if p.count("/") == 2 and p.startswith(root + "/")}
+                for folder in sorted(d for d in found if any(f"{root}/{d}/{m}" in present for m in MANIFESTS)):
+                    taken = {u.name for u in out}
+                    name = folder if folder not in taken else f"{root}-{folder}"  # crates/core beside packages/core
+                    out.append(Unit(name, r.name, f"{root}/{folder}/", kind, kind in DEPLOYABLE))
         elif r.role in {"pilet", "shell", "app"}:
             out.append(Unit(r.name, r.name, "", r.role, True))
         else:

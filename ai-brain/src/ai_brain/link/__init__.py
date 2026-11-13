@@ -60,6 +60,11 @@ class Ctx:
         """The symbol a fact belongs to, or the file when the fact sits at the top level."""
         return self.sym.get((repo, path, qual)) or self.g.file_id(repo, path)
 
+    def symbol_at(self, ref: dict | None) -> str | None:
+        """The symbol a facts row names as {file, symbol}, the way a stack other than Rails names a handler."""
+        rel = self.rel((ref or {}).get("file"))
+        return self.sym.get((rel[0], rel[1], ref["symbol"])) if rel and ref.get("symbol") else None
+
 
 def repo_path(project: Project, name: str) -> Path:
     repo = project.repo(name)

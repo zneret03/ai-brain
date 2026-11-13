@@ -36,12 +36,14 @@ It was built for workspaces shaped like this, and reads each part by its role:
   (Apollo);
 - shared libraries, and a Playwright end-to-end suite whose tests carry ticket tags like `@PROJ-123`;
 - services and libraries in other languages, such as Python, Go, Rust, Elixir, Java or Kotlin: their definitions,
-  imports, calls and tests;
+  imports, calls and tests, and in a monorepo the components under `packages/`, `services/`, `libs/`, `crates/` and
+  `cmd/`;
 - optionally, a notes repo, and plan documents for the tickets you work on.
 
 It parses Ruby, TypeScript and JavaScript in depth with tree-sitter, and every other language whose grammar ships a
-tags query through that query. The Rails facts (routes, the GraphQL schema, models, policies, jobs, mounts, Kafka
-consumers) come from booting the app with a script you supply. It draws an edge only where the code states one, so
+tags query through that query. Facts only a running app knows (routes, the GraphQL schema, models, tables, jobs,
+Kafka consumers) come from a command you supply per app; for Rails, `[rails]` boots the app with your script
+([docs/AI_BRAIN.md](docs/AI_BRAIN.md), Facts from any stack). It draws an edge only where the code states one, so
 a call through `send`, a callback or a prop has none. It does not read an issue tracker, a database's rows or a
 running app. What it reads in each language, and how to add one, is in [docs/LANGUAGES.md](docs/LANGUAGES.md).
 
@@ -121,7 +123,9 @@ Every script in `bin/`, with what it is for (`ai-brain/bin/help`):
 | `[[knowledge]] name`, `kind`, `ref` | a folder under `root` read as `notes`, `sprints` or `plans` (below) |
 | `[externals] from` | a `Gemfile.lock`; its GIT sources that are not cloned here become externals, and a `library` repo is read at the tag it pins |
 | `[rails] app`, `env` | a Rails app under `root`, booted with `bin/rails runner projects/<name>/extractors/rails_introspect.rb` for the facts, in that `RAILS_ENV`; you supply the script |
-| `[extractors] pilet_routing` | a Python file in the project folder whose `router(ctx, repo)` returns a function from a frontend operation name to the engine that answers it |
+| `[[facts]] name`, `app`, `command`, `paths`, `env` | a command that writes an app's routes, GraphQL schema, models, tables, jobs or topics as JSON lines, for any stack; the rows are in [docs/AI_BRAIN.md](docs/AI_BRAIN.md) (Facts from any stack) |
+| `[extractors] pilet_routing` | a Python file in the project folder whose `router(ctx, repo)` returns a function from a frontend operation name to the engine that answers it; unset, with one GraphQL schema in the workspace, every operation goes to it |
+| `[monorepo] roots` | more folders whose subfolders holding a manifest are components, each with its kind, e.g. `{ pilets = "pilet" }`; `packages/`, `libs/`, `crates/`, `services/` and `cmd/` always are |
 | `[skip] dirs` | folders under `root` that are not repos, such as a worktree |
 | `[tickets] prefix` | ticket keys look like `PROJ-123`, ticket branches like `you/proj-123-v1`; unset, commits and plan names link to no ticket |
 | `[names] strip_prefix` | dropped from repo and engine names in output, e.g. `"acme-"` |
@@ -279,6 +283,7 @@ Neo4j Browser at http://localhost:7474, user `neo4j`, the password in `ai-brain/
 | `ai-brain: not run (Neo4j unreachable …)` | `ai-brain/bin/ai-brain-up`, or `ai-brain/bin/ai-brain fresh` |
 | `The Docker daemon does not answer` | `sudo systemctl start docker`; on `permission denied`, add yourself to the `docker` group (see `install-docker.sh`) |
 | `boot failed; keeping the previous facts` | read `ai-brain/ai-brain/var/log/boot.log`; start the app's database, or index with `--no-boot` |
+| `facts <name> failed; keeping the previous facts` | read `ai-brain/ai-brain/var/log/facts-<name>.log`, and run the command by hand in its `app` folder |
 | the header ends in `stale:` | the named repos moved since the index; `fresh` re-indexes them in the background |
 | a background index seems stuck | `ai-brain/ai-brain/var/log/index.log` |
 | the wrong project answers | pass `--project <name>`, or run from inside that project's `root` |

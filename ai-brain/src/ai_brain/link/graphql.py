@@ -71,6 +71,9 @@ def link(ctx: Ctx) -> None:
 def _resolver_symbol(ctx: Ctx, impl: dict | None) -> str | None:
     if not impl:
         return None
+    hit = ctx.symbol_at(impl)  # {file, symbol}: a resolver outside Rails
+    if hit:
+        return hit
     rel = ctx.rel(impl.get("file"))
     cls = impl.get("cls") or ""
     if rel and impl.get("method"):
@@ -86,8 +89,9 @@ def _resolver_symbol(ctx: Ctx, impl: dict | None) -> str | None:
 
 def _load_router(ctx: Ctx):
     path = ctx.project.extractors.get("pilet_routing")
-    if not path:
-        return lambda repo: lambda op: None
+    if not path:  # with one schema in the workspace, every operation is its
+        only = next(iter(ctx.graphql_sdl)) if len(ctx.graphql_sdl) == 1 else None
+        return lambda repo: lambda op: only
     spec = importlib.util.spec_from_file_location("pilet_routing", ctx.project.dir / path)
     mod = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(mod)

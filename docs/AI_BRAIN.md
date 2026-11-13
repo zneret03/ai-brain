@@ -102,6 +102,45 @@ The same repo's `profile/*.md` pages, the workspace's facts the skills read (`pr
 gitignored too. Every index reads them from disk as doc notes, alongside `sprints/` (`link/plans.py`,
 `_home_docs`), so a profile page that cites a file shows up in `notes <file>`.
 
+## Facts from any stack
+
+Some facts only the running app knows: its routes, its GraphQL schema, its models and tables, its jobs and its Kafka
+consumers. A facts command writes them as JSON lines, one object per line with its type in `t`, and every index reads
+`ai-brain/ai-brain/projects/<name>/facts/*.jsonl`. `[rails]` is the built-in command: it boots the app with
+`bin/rails runner extractors/rails_introspect.rb`. Any other stack names its own in `project.toml`:
+
+```toml
+[[facts]]
+name = "api"                                                     # writes facts/api.jsonl
+app = "shop/services/api"                                        # the folder it runs in, under the workspace root
+command = ["python", "{project}/extractors/facts.py", "{out}"]  # {out}: the file to write; {project}, {root}
+paths = ['urls\.py$', 'models\.py$']                             # changed paths that run it again; unset: any under app
+env = { DJANGO_SETTINGS_MODULE = "api.settings" }
+```
+
+A command runs on `index --full`, on the first index, and when its repo's HEAD moved a path it reads; `--no-boot`
+skips it. One that fails keeps its last facts and writes its output to `ai-brain/ai-brain/var/log/facts-<name>.log`
+(`boot.log` for Rails). `status` names the commit each command last ran at.
+
+| `t` | Fields | Becomes |
+| --- | --- | --- |
+| `route` | `verb`, `path`, `handler` | a `route` interface, HANDLED_BY the handler, owned by the handler's component |
+| `schema` | `name`, `file`, `sdl` | the GraphQL schema of the component that holds `file`; frontend operations are matched against it |
+| `field` | `schema`, `type`, `field`, `args`, `resolver` | a `graphql_field` interface, RESOLVED_BY the resolver |
+| `table` | `name`, `schema` (default `public`), `file`, `columns` | a `table` interface, unless a `db/structure.sql` or `db/schema.rb` defines it first |
+| `model` | `class`, `file`, `table`, `assocs` (each `macro`, `name`, `class_name`) | the model: MAPS_TO its table, ASSOCIATES the models it names |
+| `consumer` | `consumer`, `file`, `topic`, `group` | CONSUMES the `kafka_topic` |
+| `job` | `class`, `file` | a definition marked as a job |
+| `schedule` | `job`, `cron`, `source` | a `schedule` interface; the job is SCHEDULED_BY it |
+| `meta` | `errors` | the lines `status` lists under `facts` |
+
+`file` is an absolute path inside the workspace root. `handler` and `resolver` are `{"file": …, "symbol": …}`.
+`class`, `consumer` and `symbol` name a definition the way the brain names it: `Order.total` in most languages,
+`Billing::Invoice` and `Billing::Invoice#total` in Ruby. The Rails boot names handlers with `controller` and `action`
+and resolvers with `cls` and `method` instead, and writes three rows only Rails has: `mount` (an engine's mount and its
+gates), `channel` (an Action Cable channel) and `cpath` (Zeitwerk's constant map). With one GraphQL schema in the
+workspace and no `[extractors] pilet_routing`, every frontend operation is matched against that schema.
+
 ## Using it from a skill or an agent
 
 - Start with `ai-brain fresh`: one header line. It starts Neo4j when it is down and re-indexes in the background

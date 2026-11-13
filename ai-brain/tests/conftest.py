@@ -5,6 +5,7 @@ from __future__ import annotations
 
 import json
 import subprocess
+import sys
 import textwrap
 from pathlib import Path
 
@@ -614,6 +615,30 @@ POLY = {
         """,
     },
 }
+POLY["web"] = {
+    "src/orders.ts": "import { gql } from '@apollo/client';\n\nexport const ORDER = gql`\n  query Order {\n"
+    "    order(id: 1) {\n      total\n    }\n  }\n`;\n",
+}
+# The facts command a stack other than Rails supplies: rows naming symbols as {file, symbol} (A10).
+FACTS = """
+import json, sys
+
+out, root = sys.argv[1], sys.argv[2]
+models, billing = f"{root}/pyapp/shop/models.py", f"{root}/pyapp/shop/billing.py"
+sdl = "type Query {\\n  order(id: ID!): Order\\n}\\n\\ntype Order {\\n  total: Int\\n}\\n"
+rows = [
+    {"t": "route", "verb": "POST", "path": "/charges", "handler": {"file": billing, "symbol": "charge"}},
+    {"t": "schema", "name": "ShopSchema", "file": models, "sdl": sdl},
+    {"t": "field", "schema": "ShopSchema", "type": "Query", "field": "order", "args": ["id"]},
+    {"t": "field", "schema": "ShopSchema", "type": "Order", "field": "total", "args": [],
+     "resolver": {"file": models, "symbol": "Order.total"}},
+    {"t": "table", "name": "orders", "file": models, "columns": ["id", "total"]},
+    {"t": "model", "class": "Order", "file": models, "table": "orders"},
+    {"t": "consumer", "topic": "orders.created", "consumer": "charge", "file": billing},
+]
+with open(out, "w") as fh:
+    fh.write("\\n".join(json.dumps(r) for r in rows) + "\\n")
+"""
 BASH_TAGS = """
 (function_definition name: (word) @name) @definition.function
 (command name: (command_name (word) @name)) @reference.call
@@ -637,17 +662,21 @@ def poly_built(tmp_path_factory):
     projects = tmp_path_factory.mktemp("poly-projects")
     (projects / "poly" / "queries" / "bash").mkdir(parents=True)
     (projects / "poly" / "queries" / "bash" / "tags.scm").write_text(BASH_TAGS)
+    (projects / "poly" / "extractors").mkdir()
+    (projects / "poly" / "extractors" / "facts.py").write_text(FACTS)
+    command = json.dumps([sys.executable, "{project}/extractors/facts.py", "{out}", "{root}"])
     repos = "".join(
         f'[[repos]]\nname = "{n}"\nrole = "{"monorepo" if n == "pymono" else "app"}"\nref = "main"\n' for n in POLY
     )
-    (projects / "poly" / "project.toml").write_text(f'[project]\nname = "poly"\nroot = "{root}"\n{repos}')
+    facts = f'[[facts]]\nname = "shop"\napp = "pyapp"\ncommand = {command}\n'
+    (projects / "poly" / "project.toml").write_text(f'[project]\nname = "poly"\nroot = "{root}"\n{repos}{facts}')
     patch = pytest.MonkeyPatch()
     var = tmp_path_factory.mktemp("poly-var")
     for mod in (config, indexer, corpus):
         patch.setattr(mod, "VAR", var)
     patch.setattr(config, "PROJECTS", projects)
     try:
-        built = indexer.build(config.load_project("poly"), fetch=False, boot_mode="never", log=lambda m: None)
+        built = indexer.build(config.load_project("poly"), fetch=False, boot_mode="auto", log=lambda m: None)
     finally:
         patch.undo()
         languages.configure()

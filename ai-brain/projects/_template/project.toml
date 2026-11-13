@@ -22,6 +22,17 @@ ref  = "main"                # read at origin/<ref>
 # app = "example-app"                          # booted with bin/rails runner extractors/rails_introspect.rb,
 # env = "development"                          # a script you put in this folder; RAILS_ENV for the boot
 
+# [[facts]]                  # any other stack: a command that writes the app's routes, GraphQL schema, models,
+# name = "api"               # tables, jobs or topics as JSON lines (docs/AI_BRAIN.md, Facts from any stack)
+# app = "example-app/services/api"                    # the folder it runs in, under root
+# command = ["python", "{project}/extractors/facts.py", "{out}"]   # {out}: the file to write; {project}, {root}
+# paths = ['urls\.py$', 'models\.py$']                # changed paths that run it again; unset: any under app
+# env = { DJANGO_SETTINGS_MODULE = "api.settings" }
+
+# [monorepo]
+# roots = { pilets = "pilet" }  # more folders whose subfolders holding a manifest are components, with their kind
+#                               # (packages/, libs/, crates/, services/ and cmd/ always are)
+
 # [extractors]
 # pilet_routing = "extractors/pilet_routing.py"  # router(ctx, repo) -> (operation name -> engine or None)
 
