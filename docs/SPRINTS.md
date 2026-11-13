@@ -1,9 +1,10 @@
 # SPRINTS — where plans, reports, bugs and reviews live
 
 `ai-brain/sprints/` is the source of truth for what you build. Every ticket's plan, its dev report, its hunt
-reports, its open bugs and its review rounds live there, one folder per sprint: `/plan` writes the plan, `/dev` builds
-from it and appends its Dev report, `/bug-hunt` files its findings beside it, `/branch-review` adds a round per
-review, and the ai-brain indexes all of it, so the next session asks the brain instead of re-reading
+reports, its open bugs, its review rounds and its evidence live there, one folder per sprint: `/plan` writes the
+plan, `/dev` builds from it, appends its Dev report and keeps its screenshots and videos in the ticket's evidence
+folder, `/bug-hunt` files its findings beside it, `/qa-demo` keeps its recordings there, `/branch-review` adds a round
+per review, and the ai-brain indexes the documents, so the next session asks the brain instead of re-reading
 (`ai-brain/bin/ai-brain ticket <KEY>`, `sprint`, `history <file>`, `notes <file>`, `gaps`).
 
 Earlier plans may sit in a plans archive: a `plans` knowledge repo in the brain's `project.toml`, read from every
@@ -17,7 +18,10 @@ sprints/<sprint>/
 ├── plan/<KEY>.md                    the plan: parity, files to touch, action items, Dev report, Log
 ├── reports/<DD>-<slug>-bug-hunt.md  one /bug-hunt run
 ├── bugs/<slug>.md                   one finding still open
-└── reviews/<KEY>.md                 /branch-review: one file per ticket, a dated round per run, never rewritten
+├── reviews/<KEY>.md                 /branch-review: one file per ticket, a dated round per run, never rewritten
+└── evidence/<KEY>/                  /dev's screenshots, GIFs, mp4s and notes.md, its runs in runs/ (§ Evidence)
+    ├── hunt/                        /bug-hunt's notes.md, bug-hunt.md and screenshots
+    └── qa/                          /qa-demo's run files and recordings
 ```
 
 The folder is the sprint's slug, made from the tracker's sprint name (`ai-brain/profile/TRACKER.md` § Current sprint
@@ -38,8 +42,32 @@ writes a plan. No AI attribution in a doc. `ai-brain/bin/plan-doc` finds and mak
 | Copy plans from the archive (`PLAN_DOC_ARCHIVE`) | `plan-doc import [--force] [<path>…]` |
 
 `edit` prints the same file whatever branch ai-brain is on, since nothing under `sprints/` is tracked. The
-ai-brain reads every `.md` there from disk on each `index`: after a plan changes,
-`ai-brain/bin/ai-brain index --background` lets `ai-brain ticket <KEY>` see it.
+commands make the evidence folders themselves (`mkdir -p`). The ai-brain reads every `.md` there from disk on each
+`index`: after a plan changes, `ai-brain/bin/ai-brain index --background` lets `ai-brain ticket <KEY>` see it.
+
+## Evidence
+
+Each ticket's screenshots, GIFs, mp4s and run files sit beside its plan, in
+`ai-brain/sprints/<sprint>/evidence/<KEY>/`: `<sprint>` is the plan's folder (`plan-doc path <KEY>` prints it), and
+work with no ticket uses its chore slug. `/dev` writes to the folder itself, with its steps files and raw runs in
+`runs/`; `/bug-hunt` writes to `hunt/` and `/qa-demo` to `qa/`.
+
+- **Never committed, never pushed.** `sprints/` is gitignored and no branch anywhere carries the evidence, so
+  screenshots of your product never reach this repo or any other. The e2e repo still holds the specs `/bug-hunt`
+  promotes; only the artifacts live here. Check every frame for a real person's data before it leaves the machine.
+- **In a PR body**, each image, GIF or mp4 is a placeholder `![alt](evidence:<file>)`, `<file>` relative to the
+  evidence folder.
+- **The upload.** After `gh pr create`, `ai-brain/bin/pr-images <owner>/<repo>#<number> <evidence folder>` opens the
+  PR in a browser signed in to GitHub, uploads each file the body names through GitHub's own attachment box, and
+  rewrites the body with the returned links; a video becomes GitHub's inline player. `--dry-run` lists what it
+  would upload and changes nothing. When it fails, the placeholders stay: drag the listed files into the PR on
+  GitHub.
+- **Signing in, once per machine.** `ai-brain/bin/pr-images --login` opens a headed browser for you to sign in to
+  GitHub, and saves the session under `ai-brain/evidence/.auth/`, which is gitignored. That session is a
+  credential: never copy, commit or share it, and delete the folder to sign out.
+- **The tooling** is `ai-brain/evidence/`, with Playwright pinned in its `package.json`. `ai-brain/bin/ai-brain-up`
+  installs it when Node is there; by hand, `npm ci --prefix ai-brain/evidence` and
+  `npx --prefix ai-brain/evidence playwright install chromium`.
 
 ## What the brain reads from a plan
 

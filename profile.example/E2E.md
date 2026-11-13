@@ -10,8 +10,8 @@ Every path is relative to the workspace root. The skills and agents cite the sec
 **The existing suite: `e2e`.** Never write a throwaway spec somewhere else, never install a second Playwright, and
 read `e2e/CLAUDE.md` before touching anything.
 
-`/bug-hunt`'s workflow args: `e2eRepo` is `e2e`; `evidenceDir` is `e2e/artifacts/tickets/<KEY>` (§ Evidence); `repos`
-is the list in `ai-brain/profile/REPOS.md` § Repos the hunt reads.
+`/bug-hunt`'s workflow args: `e2eRepo` is `e2e`; `evidenceDir` is `ai-brain/sprints/<sprint>/evidence/<KEY>/hunt`
+(§ Evidence); `repos` is the list in `ai-brain/profile/REPOS.md` § Repos the hunt reads.
 
 **What a spec looks like.**
 
@@ -37,10 +37,14 @@ wall of defects; restart it and re-run before reading anything into a large fail
 
 ## Evidence
 
-**The evidence folder** is `e2e/artifacts/tickets/<KEY>/`, on the ticket branch in that repo. It holds the screenshot
-pairs, the GIFs and mp4s, and `notes.md`, saying which stack, which data and which persona.
+**Evidence lives beside the plan, not in the e2e repo**: `ai-brain/sprints/<sprint>/evidence/<KEY>/`, gitignored
+with the rest of `sprints/` and never pushed (`ai-brain/docs/SPRINTS.md` § Evidence). `/dev` writes the screenshot
+pairs, the GIFs and mp4s, and `notes.md` (which stack, which data, which persona) there; `/bug-hunt` writes `hunt/`;
+`/qa-demo` writes `qa/`.
 
-- `/bug-hunt` writes the folder on every run, with `notes.md` and `bug-hunt.md` in it.
+- `/bug-hunt` writes `hunt/` on every run, with `notes.md` and `bug-hunt.md` in it.
 - The hunt report goes to `ai-brain/sprints/<sprint>/reports/<DD>-<slug>-bug-hunt.md`.
-- A PR's `# Demo` images: `https://github.com/acme/e2e/blob/<branch>/artifacts/tickets/<KEY>/<file>?raw=true`. Push
-  the e2e branch first, so the images resolve.
+- The e2e suite writes its own screenshots to `e2e/test-results/`; a screenshot worth keeping is copied from there
+  into the ticket's evidence folder, named after the criterion it evidences (`AC-3-empty-state.png`).
+- A PR's `# Demo` images are written `![alt](evidence:<file>)`; after `gh pr create`, `ai-brain/bin/pr-images` uploads
+  them and swaps in GitHub's links.

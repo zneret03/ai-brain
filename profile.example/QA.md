@@ -9,6 +9,9 @@ Every path is relative to the workspace root. `/qa-demo` cites the sections belo
 ## Environment
 
 - `DEV=https://dev.example.com`; the environment's name, used in the comment's heading, is `dev`.
+- Each ticket's run files go in `<qa>` = `ai-brain/sprints/<sprint>/evidence/<KEY>/qa/` (gitignored with the rest of
+  `sprints/`); the driver runs from `monorepo/apps/shop`, so from there `<qa>` is
+  `../../../ai-brain/sprints/<sprint>/evidence/<KEY>/qa`.
 - **Never** a client other than **Demo client** (`client_id` 42). Never staging or production. Never a control that
   saves.
 - `/dev` never points a browser at this environment; that is `/qa-demo`'s job.
@@ -56,7 +59,9 @@ table.
 
 - The QA driver: `monorepo/apps/shop/qa/drive.mjs` (install: `cd monorepo/apps/shop && yarn install`).
 - The session check: `node qa/check-auth.mjs $DEV` (exit 0 signed in, 3 signed out, 4 unreachable).
-- The steps file imports `ai-brain/.claude/skills/qa-demo/cursor.mjs` for the cursor and captions.
+- The steps file imports `ai-brain/.claude/skills/qa-demo/cursor.mjs` for the cursor and captions; as seen from `<qa>`
+  that is `../../../../../.claude/skills/qa-demo/cursor.mjs`.
 - **Rehearse** without video until every step passes, then **record** with `--video`, then make the media with
   `ai-brain/.claude/skills/qa-demo/media.sh`.
-- Run files stay under `monorepo/tmp/tickets/qa/<KEY>/` and are never committed.
+- Run files stay under `<qa>` (`ai-brain/sprints/<sprint>/evidence/<KEY>/qa/`) and are never committed. The sign-in
+  run's scratch and the saved session stay with the driver: they belong to no ticket.

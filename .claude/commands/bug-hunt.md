@@ -1,5 +1,5 @@
 ---
-description: Bug-hunt the feature currently in the working trees with Playwright — serial browser hunters over the surfaces the diff reaches, the developer fixes what they find, a hunter re-drives every fix, and the ticket's evidence folder in the e2e repo (ai-brain/profile/E2E.md § Evidence) is written whether or not anything broke
+description: Bug-hunt the feature currently in the working trees with Playwright — serial browser hunters over the surfaces the diff reaches, the developer fixes what they find, a hunter re-drives every fix, and the hunt's evidence folder beside the plan (ai-brain/sprints/<sprint>/evidence/<KEY>/hunt/) is written whether or not anything broke
 argument-hint: "[PROJ-123] [--scope <text>] [--families <a,b>] [--rounds N] [--fix-minor] [--no-fix] [--more-context <text|@path|url>] [--no-report] [--dry-run]"
 allowed-tools: Bash(git status:*), Bash(git fetch:*), Bash(git switch:*), Bash(git checkout:*), Bash(git add:*), Bash(git commit:*), Bash(git push:*), Bash(git log:*), Bash(git diff:*), Bash(git rev-parse:*), Bash(git symbolic-ref:*), Bash(git show-ref:*), Bash(git ls-remote:*), Bash(git branch:*), Bash(git status), Bash(gh pr:*), Bash(gh repo:*), Bash(gh auth:*), Bash(curl:*), Bash(date:*), Bash(ls:*), Bash(cp:*), Bash(mkdir:*), Read, Write, Edit, Grep, Glob, Workflow, Skill, AskUserQuestion
 ---
@@ -31,8 +31,9 @@ Three things make it its own command:
   (`ai-brain/profile/E2E.md` § Suite). Hunters therefore run **one at a time** — serially, by design, not
   for lack of ambition. Two agents driving browsers at once seed over each other and report each other's
   wreckage as defects. Never raise `--workers`, and never parallelise the hunt.
-- **The evidence folder is the deliverable.** The ticket's evidence folder in the e2e repo
-  (`E2E.md` § Evidence) is written on **every** run — a hunt that found nothing still has to show which
+- **The evidence folder is the deliverable.** The hunt's evidence folder beside the plan,
+  `ai-brain/sprints/<sprint>/evidence/<KEY>/hunt/` (`ai-brain/docs/SPRINTS.md` § Evidence), is written on
+  **every** run — a hunt that found nothing still has to show which
   states it drove, or it cannot be told apart from a hunt that stopped early. A run that ends with no
   folder has failed, whatever it says about the code.
 
@@ -70,7 +71,7 @@ Parse these off `$ARGUMENTS`; what remains is the ticket key, if one was given.
 - `--no-fix` — hunt and report only. Passed as `noFix`.
 - `--more-context <text|@path|url>` — repeatable, mixed forms fine. Passed as `moreContext`.
 - `--no-report` — do not write the hunt report or bug files in `ai-brain/sprints/<sprint>/`. The
-  e2e evidence folder is still written; that one has no off switch.
+  evidence folder is still written; that one has no off switch.
 - `--dry-run` — run the hunt and the fixes, report, and stop before any commit or push. The patches stay
   in the trees so you can read the diff.
 
@@ -81,7 +82,7 @@ The loop reuses this project's agents, from `ai-brain/.claude/agents/`:
 | Agent | Writes | Job here |
 | --- | --- | --- |
 | `general-purpose` | no | The scope pass: reads the diff and says which routes, personas and operations a browser can reach. Also the gate, and the on-disk evidence check |
-| `qa-e2e` | e2e repo only | The hunters, the verify pass, and the evidence write-up. **Still never fixes** — a defect is a finding with a `file:line` and a scenario |
+| `qa-e2e` | the e2e repo, and the evidence folder | The hunters, the verify pass, and the evidence write-up. **Still never fixes** — a defect is a finding with a `file:line` and a scenario |
 | `developer` | code repos | Patches the confirmed findings. One writer per repo, repos handled one at a time |
 
 If the workflow stops with `agent type 'qa-e2e' not found`, the registry has not picked up the files:
@@ -117,8 +118,8 @@ run `ai-brain/bin/install.sh` and start a new session.
    is the normal input to this command. What does block:
    - **Nothing to hunt.** Every repo clean and on its base branch means there is no feature in these
      trees. Stop and say so rather than hunting `main`.
-   - **A dirty e2e repo that is not this hunt's own work.** The hunters write specs, probes and
-     artefacts there. Show what is uncommitted and ask before writing over it.
+   - **A dirty e2e repo that is not this hunt's own work.** The hunters write specs and probes
+     there; their artefacts go to the evidence folder, never into this repo. Show what is uncommitted and ask before writing over it.
 
 3. **Resolve the ticket key.** In order: the argument, then the branch names (`you/proj-123-v1` →
    `PROJ-123`; the key's prefix is in `ai-brain/profile/TRACKER.md` § Site and board), then ask. If two
@@ -151,8 +152,12 @@ run `ai-brain/bin/install.sh` and start a new session.
    files to touch and open gaps, which tell the hunters where to look), or `ai-brain/bin/plan-doc path
    <KEY>`; an older one may sit in the plans archive (`PLAN_DOC_ARCHIVE`, `REPOS.md` § Reference docs).
    The hunt does not need it, but the evidence notes link it, and a hunter that knows the intended
-   behaviour files better findings. The plan's sprint is where the write-up goes (Step 4); with no plan,
-   the current sprint from the tracker (`TRACKER.md` § Current sprint).
+   behaviour files better findings. The plan's sprint folder (`sprints/<sprint>/plan/<KEY>.md`) is where the
+   evidence folder and the write-up go: `ai-brain/sprints/<sprint>/evidence/<KEY>/hunt/` (Step 3), and
+   `reports/` and `bugs/` (Step 4). With no plan, ask which sprint folder to use: the newest under
+   `ai-brain/sprints/` by default (`ai-brain/bin/ai-brain sprint all` lists them), or the tracker's current
+   sprint (`TRACKER.md` § Current sprint) when the folder does not exist yet. Make the evidence folder
+   before the run: `mkdir -p ai-brain/sprints/<sprint>/evidence/<KEY>/hunt`.
 
 ## Step 2 — run the hunt
 
@@ -164,7 +169,7 @@ Workflow({
     today: "<YYYY-MM-DD from Step 1>",
     e2eRepo: "<the e2e repo, from ai-brain/profile/E2E.md § Suite>",
     repos: ["<every repo from Step 1.2>"],
-    evidenceDir: "<the ticket's evidence folder, from E2E.md § Evidence>",
+    evidenceDir: "ai-brain/sprints/<sprint from Step 1.7>/evidence/PROJ-123/hunt",
     scope: "<--scope text, if given>",
     families: ["zero-one-many", "..."],
     maxRounds: <N>,
@@ -197,8 +202,8 @@ When it returns:
 
 ## Step 3 — the evidence folder is the invariant
 
-`evidenceDir` is the ticket's evidence folder in the e2e repo (`E2E.md` § Evidence), and it must exist
-with `notes.md` and `bug-hunt.md` in it. Read `evidenceCheck`, which checked the disk rather than taking
+`evidenceDir` is the hunt's evidence folder, `ai-brain/sprints/<sprint>/evidence/<KEY>/hunt/`
+(`ai-brain/docs/SPRINTS.md` § Evidence), and it must exist with `notes.md` and `bug-hunt.md` in it. Read `evidenceCheck`, which checked the disk rather than taking
 the writer's word:
 
 ```
@@ -208,13 +213,16 @@ ls -la <evidenceDir>
 - **Folder or a file missing** — say so plainly and write the missing piece yourself from the workflow's
   return value: the scenario list, the findings, what was fixed, what is open, what could not be reached.
   Do not report the run as recorded when it is not.
-- **Screenshots missing** — the hunters capture into `test-results/`, which Playwright clears on the next
-  run. If `evidence.missing` names images, copy what still exists and list what is gone. A `notes.md`
+- **Screenshots missing** — the hunters capture into the suite's own output folder (`test-results/` in
+  the e2e repo unless `E2E.md` § Suite names another), which Playwright clears on the next run, and the
+  evidence pass copies each named one into `hunt/`. If `evidence.missing` names images, copy what still
+  exists and list what is gone. A `notes.md`
   whose screenshot table points at files that are not there is worse than a table with fewer rows.
 - **Never rename a screenshot to look like something it does not show.**
 
 The folder is the point of the run, so this step happens on every exit path — converged, unconverged or
-aborted.
+aborted. It stays on this machine: `ai-brain/sprints/` is gitignored, so the folder is never committed or
+pushed.
 
 ## Step 4 — the write-up, beside the plan in `ai-brain/sprints/<sprint>/`
 
@@ -265,8 +273,8 @@ fix(PROJ-123): render the empty list instead of a blank table
 
 The body names the finding it closes, the scenario that found it, and the paired repo when there is one.
 Order: the owning service first, then the frontend (with any regenerated dumped schema and generated types,
-`ai-brain/profile/CODE_MAP.md` § Contract files), then the e2e repo (the specs, the probes and the evidence
-folder).
+`ai-brain/profile/CODE_MAP.md` § Contract files), then the e2e repo (the specs and the probes; the evidence
+folder is not committed anywhere).
 
 **Attribution follows `REPOS.md` § Branches and commits** — what a commit may and may not carry about who
 wrote it, in every repo here.
@@ -295,8 +303,9 @@ git -C <repo> push -u origin <branch>
 ## Step 7 — the tracker
 
 Ask first. If yes: a comment on the ticket saying what was hunted, what was found, what was fixed and what
-is still open, linking the report and the evidence folder, in the format `ai-brain/profile/TRACKER.md`
-§ Writing to the tracker gives and the style of `ai-brain/docs/JIRA_COMMENTS.md`. Do not transition the
+is still open, in the format `ai-brain/profile/TRACKER.md` § Writing to the tracker gives and the style of
+`ai-brain/docs/JIRA_COMMENTS.md`. The report and the evidence folder stay on this machine
+(`ai-brain/sprints/` is never pushed), so the comment carries the findings, not links to them. Do not transition the
 ticket, and do not edit its description — if a description must change, it follows the description format
 in `TRACKER.md` § Writing to the tracker.
 

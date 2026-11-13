@@ -13,7 +13,7 @@ export const meta = {
     { title: 'Fix', detail: 'the developer patches the confirmed defects, one writer per repo' },
     { title: 'Gate', detail: 'scoped rubocop / rspec / lint / type-check / jest on the repos the fixes touched' },
     { title: 'Verify', detail: 'a hunter re-drives every fixed finding in the browser — nothing is fixed on a claim' },
-    { title: 'Evidence', detail: "write the ticket's evidence folder in the e2e repo — mandatory, findings or not" },
+    { title: 'Evidence', detail: "write the hunt's evidence folder beside the plan in ai-brain/sprints — mandatory, findings or not" },
     { title: 'Evidence check', detail: 'the folder, notes.md and bug-hunt.md must exist on disk, or the run says so' },
   ],
 };
@@ -22,10 +22,11 @@ export const meta = {
 // args: { ticket: string, today: string, base?: object, scope?: string,
 //         families?: string | string[], maxRounds?: number, notes?: string,
 //         moreContext?: string | string[], fixMinor?: boolean, noFix?: boolean,
-//         e2eRepo?: string, repos?: string | string[], evidenceDir?: string }
+//         e2eRepo?: string, repos?: string | string[], sprint?: string, evidenceDir?: string }
 //
-// `e2eRepo`, `repos` and `evidenceDir` are the workspace's own facts; the /bug-hunt command reads
-// them from ai-brain/profile/ (REPOS.md, E2E.md) and passes them in. The defaults are neutral.
+// `e2eRepo` and `repos` are the workspace's own facts, read by the /bug-hunt command from
+// ai-brain/profile/ (REPOS.md, E2E.md). `evidenceDir` is the hunt's folder beside the plan,
+// ai-brain/sprints/<sprint>/evidence/<KEY>/hunt; without it, `sprint` builds that path.
 //
 // `today` is passed IN because a workflow script cannot call `new Date()` — it would
 // break resume. Everything dated in this run (the evidence notes, the report the command
@@ -73,7 +74,15 @@ if (!TODAY) {
 // The e2e repo the hunters write in, and the repos the diff is read from: ai-brain/profile/E2E.md
 // § Suite and REPOS.md, passed in by the command.
 const PLAYWRIGHT = ((args && args.e2eRepo) || 'e2e').trim();
-const EVIDENCE_DIR = ((args && args.evidenceDir) || `${PLAYWRIGHT}/artifacts/tickets/${TICKET}`).trim();
+const SPRINT = ((args && args.sprint) || '').trim();
+const EVIDENCE_DIR = (
+  (args && args.evidenceDir) || (SPRINT ? `ai-brain/sprints/${SPRINT}/evidence/${TICKET}/hunt` : '')
+).trim();
+if (!EVIDENCE_DIR) {
+  throw new Error(
+    "bug-hunt needs args.evidenceDir (ai-brain/sprints/<sprint>/evidence/<KEY>/hunt) or args.sprint — the folder sits beside the ticket's plan, and the command resolves the sprint from the plan's path.",
+  );
+}
 
 const RAW_REPOS = (args && args.repos) || [];
 const REPOS = (Array.isArray(RAW_REPOS) ? RAW_REPOS : [RAW_REPOS]).map((r) => String(r).trim()).filter(Boolean);
@@ -90,7 +99,9 @@ The workspace's facts live in \`ai-brain/profile/\`:
 - \`GRAPHQL_SURFACES.md\` — where every existing query and mutation lives
 - \`CODE_MAP.md\` — where each layer's files live, the contract files, the conventions
 - \`STACK.md\` — running the app: entry points, ports, flags
-- \`E2E.md\` — the e2e suite (\`${PLAYWRIGHT}\`): its folders, fixtures, seeds, commands and traps, and the evidence folder`;
+- \`E2E.md\` — the e2e suite (\`${PLAYWRIGHT}\`): its folders, fixtures, seeds, commands and traps, and the house style of the evidence notes
+
+The hunt's evidence folder is \`${EVIDENCE_DIR}\`, beside the ticket's plan (\`ai-brain/docs/SPRINTS.md\` § Evidence). It is gitignored: nothing in it is ever committed or pushed, and nothing of it goes into \`${PLAYWRIGHT}\`.`;
 
 // The one hard constraint of this workflow. `playwright.config.ts` sets `workers: 1` and
 // `fullyParallel: false` because the whole suite shares ONE backend database whose seeds
@@ -866,7 +877,7 @@ const allShots = history.flatMap((h) =>
 phase('Evidence');
 
 const evidence = await agent(
-  `Read \`ai-brain/.claude/agents/qa-e2e.md\` for your boundaries — **you write inside \`${PLAYWRIGHT}\` and nowhere else.** You are not hunting now; you are writing the record of a hunt that has finished.
+  `Read \`ai-brain/.claude/agents/qa-e2e.md\` for your boundaries — **here you write inside \`${EVIDENCE_DIR}\` and nowhere else.** You are not hunting now; you are writing the record of a hunt that has finished.
 
 ${WORKSPACE}
 
@@ -897,7 +908,7 @@ ${unfixed.length ? `   Reasons recorded by the loop:\n${unfixed.map((u) => `   -
 ${scope.unreachable.length ? scope.unreachable.map((u) => `   - ${u.what} — ${u.why}`).join('\n') : '   - nothing recorded'}
 7. **Specs and probes left behind** — paths, and one line each on what they pin. Probes are kept, not deleted.
 
-Screenshots the hunters captured, to copy in from \`${PLAYWRIGHT}/test-results/\` — copy what exists, and list in \`missing\` anything you were told about but could not find:
+Screenshots the hunters captured, to copy in from the suite's output folder (\`${PLAYWRIGHT}/test-results/\` unless \`E2E.md\` § Suite names another) — copy what exists, and list in \`missing\` anything you were told about but could not find:
 ${allShots.length ? allShots.map((s) => `- ${s}`).join('\n') : '- (none reported)'}
 
 Rules: no praise, no invented paths, no screenshot renamed to look like a criterion it does not show. Where a fact is not available to you — a SHA, a seeded id — write what you checked and that it was unavailable, rather than a plausible value. Do not commit and do not push.

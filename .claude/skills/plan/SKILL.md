@@ -363,9 +363,10 @@ reads them by these headings and works the ledger as written, and the brain read
     a branch that already has changes takes it from `git archive origin/<base>` in the scratchpad, never
     a worktree. Write the item as the click path each AC needs, and name any AC no click path can reach
     (a rule that blocks the state, a picker with no seconds), with the test that covers it instead.
-    They go in the evidence folder `ai-brain/profile/E2E.md` § Evidence names, under `<KEY>/`, with a
-    `notes.md` saying where each came from: which local stack, which data, which persona and how it was granted.
-    The PR item depends on it: every PR body opens with `# Demo`, the before/after pairs embedded.
+    They go in the ticket's evidence folder beside this plan, `ai-brain/sprints/<sprint>/evidence/<KEY>/`
+    (gitignored; `ai-brain/docs/SPRINTS.md` § Evidence), with a `notes.md` saying where each came from: which
+    local stack, which data, which persona and how it was granted. The PR item depends on it: every PR body
+    opens with `# Demo`, the before/after pairs uploaded into it by `ai-brain/bin/pr-images`.
 14. **Delivery order** — what merges before what, across repos, by the pairing rules in
     `ai-brain/profile/REPOS.md` § Delivery order. A BE contract change ships with its frontend consumer.
 15. **Testing** — the RSpec, Jest and Playwright files, and the manual path a human follows.

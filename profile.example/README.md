@@ -28,7 +28,7 @@ A file you leave out makes the skill that reads it ask, or stop with what it nee
 | `CODE_MAP.md` | per-layer paths, contract files, reuse homes, code conventions | `/plan`, `/dev`, `/branch-review`, `/bug-hunt`, the agents |
 | `STACK.md` | entry points, the frontend feed, preflight, test data, gates, recording | `/dev`, `/bug-hunt`, `qa-e2e` |
 | `TRACKER.md` | site and board, current sprint, ticket family, QA gates, writing to the tracker | `/plan`, `/branch-review`, `/qa-demo`, `/bug-hunt`, `project-manager` |
-| `E2E.md` | the e2e suite and the evidence folder | `/plan`, `/dev`, `/bug-hunt`, `developer`, `qa-design`, `qa-e2e` |
+| `E2E.md` | the e2e suite, and where its screenshots are copied from into the evidence folder | `/plan`, `/dev`, `/bug-hunt`, `developer`, `qa-design`, `qa-e2e` |
 | `QA.md` | the shared environment, sign-in, data lookups, the recording table, the QA driver | `/qa-demo`, `/dev` |
 | `LESSONS.md` | your own rules, and what your tickets and reviews taught | `/plan`, `/dev`, `/branch-review`, `project-manager`, `qa-e2e`, `qa-frontend` |
 | `qa/login.mjs` | the sign-in steps the QA driver runs | `/qa-demo` |

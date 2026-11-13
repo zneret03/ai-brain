@@ -156,8 +156,8 @@ merges. A row with no test is an incomplete row, and `/dev` treats the criterion
   denied example.
 - **FE row** → the frontend test file: a pure-helper unit test, or an integration test through the app's
   provider helper asserting on what the user sees across loading, error and success.
-- **Design row** → the code value cited `file:line` (exact and re-checkable), plus the named e2e screenshot
-  that records it visually.
+- **Design row** → the code value cited `file:line` (exact and re-checkable), plus the named screenshot in the
+  ticket's evidence folder (`ai-brain/docs/SPRINTS.md` § Evidence) that records it visually.
 - **Cross row** (a BE ↔ FE contract) → both sides: the backend spec and the frontend test that consumes it.
 - **Cannot be pinned** → say why, in the row, and raise it as an open question. "Checked by hand" is an
   answer only when it names who checks it and when.

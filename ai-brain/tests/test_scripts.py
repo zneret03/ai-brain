@@ -3,7 +3,9 @@
 from __future__ import annotations
 
 import argparse
+import json
 import os
+import shutil
 import subprocess
 from pathlib import Path
 
@@ -39,3 +41,17 @@ def test_every_verb_and_option_says_what_it_is_for():
     for name, sp in verbs.choices.items():
         assert sp.description, name
         assert all(a.help for a in sp._actions if a.dest not in ("help", "project_sub")), name
+
+
+@pytest.mark.skipif(not shutil.which("node"), reason="no Node.js")
+def test_pr_images_swaps_each_placeholder_for_its_link():
+    js = (
+        f"import {{ placeholders, rewrite }} from '{(BIN.parent / 'evidence' / 'pr-images.mjs').as_uri()}';"
+        "const b = 'a ![x](evidence:x.png) b ![v](evidence:v.mp4) c ![x](evidence:x.png) d ![k](evidence:keep.png)';"
+        "console.log(JSON.stringify([placeholders(b), rewrite(b, { 'x.png': 'U1', 'v.mp4': 'U2' })]));"
+    )
+    files, body = json.loads(_run("node", "--input-type=module", "-e", js).stdout)
+    assert files == ["x.png", "v.mp4", "keep.png"]
+    assert (
+        body == "a ![x](U1) b \nU2\n c ![x](U1) d ![k](evidence:keep.png)"
+    )  # a video is a bare link; no link, no swap

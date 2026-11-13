@@ -81,7 +81,8 @@ A design claim with no way to re-check it decays the moment someone else edits t
 - **Node/state coverage** → a frontend integration test that renders the state and asserts on what the user
   sees, where the frontend keeps them (`ai-brain/profile/CODE_MAP.md` § Reuse homes).
 - **The visual record** → a named e2e screenshot, filed in the ticket's evidence folder
-  (`ai-brain/profile/E2E.md` § Evidence) next to the Figma reference image.
+  (`ai-brain/sprints/<sprint>/evidence/<KEY>/`, `ai-brain/docs/SPRINTS.md` § Evidence) next to the Figma
+  reference image.
 
 Do not ask for a pixel-snapshot test unless the workspace has a visual-regression harness
 (`ai-brain/profile/E2E.md` § Suite says whether it does); adding one is its own ticket.

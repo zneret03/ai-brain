@@ -92,6 +92,15 @@ fi
 step "Skill link"
 "$BIN/install.sh" | grep -m1 "^installed"
 
+step "Evidence tooling"
+if ! command -v npm >/dev/null; then
+  echo "skipped: no Node.js, so /dev cannot upload PR images (docs/SPRINTS.md § Evidence)"
+else
+  [ -d "$ORCH/evidence/node_modules/playwright" ] || npm ci --prefix "$ORCH/evidence" --no-audit --no-fund --silent
+  npx --prefix "$ORCH/evidence" playwright install chromium >/dev/null && echo "Playwright ready"
+  [ -f "$ORCH/evidence/.auth/github.json" ] || echo "sign in once for PR images: $BIN/pr-images --login"
+fi
+
 step "Ready"
 "$BIN/ai-brain" doctor
 echo

@@ -16,3 +16,7 @@
 
 # Python bytecode anywhere in the tree.
 __pycache__/
+
+# Node packages, and the GitHub session pr-images saves (a credential).
+node_modules/
+/evidence/.auth/

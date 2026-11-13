@@ -30,8 +30,9 @@ where the shape is (`profile/TRACKER.md` § Ticket family).
   │             accounts, real buttons, no seeders; one scenario per AC as its persona, then the hunt
   │             for the edge and worst cases users hit. A broken scenario goes back to Build with a
   │             regression test.
-  │   Evidence ─ screenshots, mp4 and GIF in the e2e repo's evidence folder (profile/E2E.md § Evidence)
-  │   Ship ──── behind one yes: commits, pushes, paired PRs opening with # Demo, the plan's Log
+  │   Evidence ─ screenshots, mp4 and GIF in sprints/<sprint>/evidence/<KEY>/ (docs/SPRINTS.md § Evidence)
+  │   Ship ──── behind one yes: commits, pushes, paired PRs opening with # Demo, its images uploaded
+  │             by bin/pr-images; the plan's Log
   │
 /branch-review PROJ-123 ── the ai-brain first; stops with an error when it does not answer. No code written:
       Read ──── the family's AC, the plan and its Decisions, every branch the ticket has, without a switch
@@ -66,7 +67,7 @@ Scope ── read the diff across every repo; derive the routes a browser can re
   │     │     for the states it may have hidden. A fix nobody re-drove stays a claim.
   └─────┘ rounds until nothing fixable is left, or --rounds runs out (default 3)
           │
-Evidence ── the e2e repo's evidence folder (profile/E2E.md § Evidence) with notes.md,
+Evidence ── sprints/<sprint>/evidence/<KEY>/hunt/ (docs/SPRINTS.md § Evidence) with notes.md,
             bug-hunt.md and the named screenshots — written on EVERY exit path, then
             checked on disk by a second agent.
 ```
@@ -119,6 +120,8 @@ bin/ai-brain-up               sets up, starts and updates everything; safe to re
 bin/ai-brain-bootstrap        the venv, .env and var/
 bin/ai-brain-hook             the PostToolUse hook that shows a file's card after an edit
 bin/plan-doc                  finds and shows the docs in sprints/, makes a sprint's folders on first use, imports an archive
+bin/pr-images                 uploads the images a PR body names from the evidence folder, through a signed-in
+                              browser; --login once per machine
 bin/install.sh                links the .claude/ entries into the workspace root's .claude/
 bin/help                      lists every script here and what it is for; each script takes --help
 docs/AI_BRAIN.md              the brain's contract: what it answers, output, exit codes, the trust rule, set up
@@ -127,12 +130,14 @@ docs/PRACTICES.md             the house rules for planning, writing and reviewin
                               design, data and queries, caching, the contract, Rails, React, tests; the brain indexes it
 docs/DESIGN_PARITY.md         the Figma contract: nodes, spacing, tokens, tolerances, the fix cycle
 docs/JIRA_COMMENTS.md         how every tracker comment is written: plain words, short headings, a kind tone
-docs/SPRINTS.md               the sprints/ layout, and what the brain reads from each section
+docs/SPRINTS.md               the sprints/ layout, the evidence contract, and what the brain reads from each section
+evidence/                     the Playwright tooling (pinned in package.json); pr-images.mjs, which bin/pr-images runs;
+                              .auth/ (gitignored) holds the saved GitHub session, a credential
 profile.example/              the shape of a workspace profile, with neutral examples; copy it to profile/
 profile/                      gitignored, yours: REPOS, MICROSERVICES, DEFINITIONS, GRAPHQL_SURFACES, CODE_MAP,
                               STACK, TRACKER, E2E, QA and LESSONS — the facts the skills and agents read
-sprints/                      gitignored, made by the first /plan: every plan, Dev report, hunt report, bug and
-                              review round, one folder per sprint
+sprints/                      gitignored, made by the first /plan: every plan, Dev report, hunt report, bug,
+                              review round and ticket's evidence, one folder per sprint
 ```
 
 ## Install
@@ -212,8 +217,9 @@ and DRY applied to this harness; `docs/PRACTICES.md`, "KISS and DRY", has the si
 **A repo that was modified gets its own branch, and a shared branch is never a push target.** Not `main`, not
 `staging`, not `development`, not `develop` — in any repo of the workspace, the e2e repo included.
 
-`sprints/` in this repo never commits: it is gitignored, so plans, Dev reports, hunt reports and bug files stay
-on each dev's machine and never reach a branch (`docs/SPRINTS.md`). Everything else, in this repo or any other,
+`sprints/` in this repo never commits: it is gitignored, so plans, Dev reports, hunt reports, bug files and
+evidence stay on each dev's machine and never reach a branch (`docs/SPRINTS.md`); a PR gets its images through
+`bin/pr-images`, not a pushed branch. Everything else, in this repo or any other,
 follows the rule above.
 
 - One branch name across every repo a ticket touches: `{name}/{key}-v{n}`, e.g. `you/proj-123-v1`. The same

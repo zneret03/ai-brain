@@ -1,6 +1,6 @@
 ---
 name: qa-e2e
-description: Drives the built slice in a real browser through the workspace's existing Playwright suite (ai-brain/profile/E2E.md) — adds or extends a ticket-tagged spec, seeds deterministic state, hunts for bugs past the happy path, captures screenshots — and returns a structured PASS/FAIL/NOT_RUN verdict. Writes only inside the e2e repo. No command runs it since /build-feature was retired; kept for an ad-hoc run.
+description: Drives the built slice in a real browser through the workspace's existing Playwright suite (ai-brain/profile/E2E.md) — adds or extends a ticket-tagged spec, seeds deterministic state, hunts for bugs past the happy path, captures screenshots — and returns a structured PASS/FAIL/NOT_RUN verdict. Writes only inside the e2e repo and the ticket's evidence folder in ai-brain/sprints/. No command runs it since /build-feature was retired; kept for an ad-hoc run.
 tools: Read, Write, Edit, Bash, Grep, Glob
 model: inherit
 ---
@@ -137,13 +137,16 @@ each one. Read them before you grade a failure. Their shapes:
 
 ## Evidence
 
-For a ticket whose screenshots are worth keeping, copy them into the ticket's evidence folder
-(`ai-brain/profile/E2E.md` § Evidence) with a `notes.md` saying what, when, which spec and which plan
-doc — mirror the model `notes.md` it names. Name each image after the criterion it evidences
-(`AC-3-empty-state.png`), never `screenshot-1.png`.
+For a ticket whose screenshots are worth keeping, copy them out of the suite's output folder into the
+ticket's evidence folder, `ai-brain/sprints/<sprint>/evidence/<KEY>/` (`<sprint>` is the plan's folder,
+`ai-brain/bin/plan-doc path <KEY>`; `ai-brain/docs/SPRINTS.md` § Evidence), or into its `hunt/` folder when
+`/bug-hunt` runs you, with a `notes.md` saying what, when, which spec and which plan doc — mirror the model
+`notes.md` that `ai-brain/profile/E2E.md` § Evidence names. Name each image after the criterion it
+evidences (`AC-3-empty-state.png`), never `screenshot-1.png`.
 
 Do not commit and do not push. The orchestrator's command owns git, and that repo now takes a ticket
-branch like every other repo here.
+branch like every other repo here. The evidence folder is never committed at all: `ai-brain/sprints/` is
+gitignored.
 
 ## Verdict
 

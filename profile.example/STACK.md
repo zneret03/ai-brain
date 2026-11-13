@@ -54,6 +54,9 @@ For every repo the diff touched, the gate commands in `ai-brain/profile/REPOS.md
 
 ## Recording
 
-- Steps files and runs live in `monorepo/tmp/tickets/dev/<KEY>/` (gitignored), written for the QA driver with
+- Steps files and runs live in `ai-brain/sprints/<sprint>/evidence/<KEY>/runs/`, gitignored with the rest of
+  `sprints/`; the evidence itself (screenshot pairs, GIFs, mp4s, `notes.md`) sits one level up, in
+  `ai-brain/sprints/<sprint>/evidence/<KEY>/`. Write them for the QA driver with
   `ai-brain/.claude/skills/qa-demo/cursor.mjs` for a visible cursor and captions.
-- **Record**: `node <driver> <baseURL> <run dir> <steps> --video`, at `1440x900` so a table stays readable.
+- **Record**: `node <driver> <baseURL> ../../../ai-brain/sprints/<sprint>/evidence/<KEY>/runs/<run> <steps> --video`
+  from `monorepo/apps/shop`, at `1440x900` so a table stays readable.

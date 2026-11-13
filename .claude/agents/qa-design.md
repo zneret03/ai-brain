@@ -56,8 +56,9 @@ with a spacing unit. A design value that is not on the scale is worth saying out
 
 Use a rendered screenshot only when there is no code value to read — a computed layout, an overflow, a
 truncation — and then hold to ±1px. Screenshots from the e2e lane live in the e2e repo's `test-results/`
-and the ticket's evidence folder (`ai-brain/profile/E2E.md` § Evidence); if you need one that does not
-exist, say so rather than starting the suite yourself.
+and the ticket's evidence folder, `ai-brain/sprints/<sprint>/evidence/<KEY>/` (`ai-brain/docs/SPRINTS.md`
+§ Evidence; a hunt's are under `hunt/`); if you need one that does not exist, say so rather than starting
+the suite yourself.
 
 ## The checklist
 

@@ -1,0 +1,12 @@
+#!/usr/bin/env bash
+# Upload the evidence a PR body names as ![alt](evidence:<file>) and swap in GitHub's links (docs/SPRINTS.md).
+#
+#   bin/pr-images --login                                       sign in to GitHub once, in a browser window
+#   bin/pr-images <owner>/<repo>#<n> <evidence-dir>             upload each file, then rewrite the PR body
+#   bin/pr-images <owner>/<repo>#<n> <evidence-dir> --dry-run   list what it would upload
+#   bin/pr-images --help                                        this text
+set -euo pipefail
+if [ "${1:-}" = -h ] || [ "${1:-}" = --help ]; then awk 'NR==1{next} /^#/{sub(/^# ?/,""); print; next} {exit}' "$0"; exit 0; fi
+ORCH="$(cd "$(dirname "$0")/.." && pwd)"
+command -v node >/dev/null || { echo "pr-images: Node.js is not installed" >&2; exit 3; }
+exec node "$ORCH/evidence/pr-images.mjs" "$@"

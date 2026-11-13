@@ -66,8 +66,11 @@ on a command line, in a file or in a log.
 | ffmpeg with H.264 and GIF | `ffmpeg -hide_banner -encoders \| grep -E ' libx264 \| gif '` | `sudo apt install ffmpeg` |
 | Jira token (optional) | `[ -n "$JIRA_EMAIL" ] && [ -n "$JIRA_API_TOKEN" ]` | the setup TRACKER.md § Writing to the tracker names. Without it the user attaches the video by hand |
 
-Set `SKILL_DIR=ai-brain/.claude/skills/qa-demo`, and `QA` (the gitignored folder the run files go in) and `DEV`
-(the environment's URL) from `ai-brain/profile/QA.md` § Environment.
+Set `SKILL_DIR=ai-brain/.claude/skills/qa-demo`, and `DEV` (the environment's URL) from `ai-brain/profile/QA.md`
+§ Environment. Each ticket's run files go in its evidence folder, `<qa>` = `ai-brain/sprints/<sprint>/evidence/<KEY>/qa/`:
+`<sprint>` is the folder of the ticket's plan (`ai-brain/bin/plan-doc path <KEY>`), or the newest folder under
+`ai-brain/sprints/` when the ticket has no plan (`ai-brain/docs/SPRINTS.md` § Evidence). Make it with `mkdir -p`;
+like all of `sprints/`, it is gitignored.
 
 ## Step 1 — gate every ticket
 
@@ -150,8 +153,8 @@ before each ticket.
 
 ## Step 7 — write, rehearse, record
 
-**The steps file** is `$QA/<KEY>/demo-steps.mjs`: one scenario, so the ticket gets one continuous video. This is
-its shape in the driver's format; QA.md § Driver has the two import paths as seen from the run folder.
+**The steps file** is `<qa>/demo-steps.mjs`: one scenario, so the ticket gets one continuous video. This is
+its shape in the driver's format; QA.md § Driver has the two import paths as seen from `<qa>`.
 
 ```js
 import { impersonate, stopImpersonating } from '<the impersonation helper, QA.md § Driver>';
@@ -214,12 +217,12 @@ Rules for the steps:
 - Selectors: the sources `ai-brain/profile/QA.md` § Driver names, the e2e suite's page objects first.
 
 **Rehearse** without video until every step passes, at most three rounds, with the rehearsal command in
-QA.md § Driver, into `$QA/<KEY>/rehearsal`. Read the run's `log.json` and the screenshots after each round. A
+QA.md § Driver, into `<qa>/rehearsal`. Read the run's `log.json` and the screenshots after each round. A
 failure that looks like the product, not the script (the right control, the right data, the wrong result),
 stops the ticket: report it to the user with the screenshot as a possible defect, and post nothing.
 
 **Record** once the rehearsal is green, with the recording command in QA.md § Driver, into
-`<run>` = `$QA/<KEY>/$(date +%F)-dev-demo`. Then make the media:
+`<run>` = `<qa>/$(date +%F)-dev-demo`. Then make the media:
 
 ```bash
 bash ai-brain/.claude/skills/qa-demo/media.sh <run>/media/*.webm <run>/<KEY>-qa-demo
@@ -301,8 +304,8 @@ out as markdown pipe tables. A worked example, when your profile has one, is lin
   comment. 2FA is the user's, in the headed window.
 - No post without the Step 8 yes. One comment per ticket.
 - Evidence is not verification: the comment reports what the recording showed, and QA confirms it.
-- Run files stay under `$QA/<KEY>/`. Never commit them, and never attach the driver's saved session (QA.md
-  § Driver says where it lives).
+- Run files stay under `<qa>`, the ticket's gitignored evidence folder. Never commit them, and never attach the
+  driver's saved session (QA.md § Driver says where it lives).
 
 ## Departures from the product's own browser-verification skill
 

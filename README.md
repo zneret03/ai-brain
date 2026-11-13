@@ -198,11 +198,11 @@ Each asks the brain before it greps, and reads your workspace's facts from `ai-b
 | Piece | What it does |
 | --- | --- |
 | `/plan <KEY>` | reads the ticket, its parent and its siblings; maps the files with the brain and has backend and frontend agents verify the map; asks what it could not settle; cuts the ticket branches and writes `sprints/<sprint>/plan/<KEY>.md`. No code |
-| `/dev <KEY>` | builds the plan's action items in order, each with its test; runs the gates; clicks the change through on the local stack as each persona, then hunts the edge cases; records before and after evidence; opens paired PRs on a yes |
+| `/dev <KEY>` | builds the plan's action items in order, each with its test; runs the gates; clicks the change through on the local stack as each persona, then hunts the edge cases; records before and after evidence into the ticket's evidence folder; opens paired PRs on a yes, with the images uploaded into each |
 | `/branch-review <KEY>` | reviews every branch a ticket has through the brain: what the diff reaches, scoped checks, a Rails lane and a React lane, findings by reason; writes a review round to `sprints/`, posts to GitHub only on a yes |
 | `/qa-demo` | for the tickets at the tracker's QA gate, records a replication video on the shared environment with a visible cursor, and posts it as one comment per ticket |
 | `/ai-brain` | the brain's verbs, for any cross-repo question |
-| `/bug-hunt` | the command: serial Playwright hunters over what the diff reaches, the developer fixes what they find, a hunter re-drives every fix; writes the evidence folder whether or not anything broke |
+| `/bug-hunt` | the command: serial Playwright hunters over what the diff reaches, the developer fixes what they find, a hunter re-drives every fix; writes its evidence (`evidence/<KEY>/hunt/`) whether or not anything broke |
 | agents | `project-manager`, `developer`, `qa-backend`, `qa-frontend`, `qa-design`, `qa-e2e`. `/bug-hunt` runs `developer`, `/branch-review` runs `qa-backend` and `qa-frontend`, the rest run ad hoc |
 
 The flow and its rules (branching, the browser check, what `/dev` never does) are in [CLAUDE.md](CLAUDE.md).
@@ -225,7 +225,7 @@ cp -r ai-brain/profile.example ai-brain/profile
 | `CODE_MAP.md` | per-layer paths, contract files, where shared code lives, conventions |
 | `STACK.md` | entry points, the frontend feed, preflight checks, test data |
 | `TRACKER.md` | the tracker's site and board, the current sprint, the ticket family, QA gates, how to write to it |
-| `E2E.md` | the e2e suite and its evidence folder |
+| `E2E.md` | the e2e suite: repo, config, ports, seeding, tags |
 | `QA.md` | the shared environment, sign-in, data lookups, recording |
 | `LESSONS.md` | what your tickets and reviews taught |
 
@@ -238,12 +238,23 @@ Plans, Dev reports, review rounds, hunt reports and bugs live in `ai-brain/sprin
 developer's own. A fresh clone has none: the folder appears when `/plan` writes its first plan
 (`ai-brain/bin/plan-doc edit` makes it). The layout is in [docs/SPRINTS.md](docs/SPRINTS.md).
 
+Each ticket's evidence sits beside its plan in `ai-brain/sprints/<sprint>/evidence/<KEY>/`: `/dev`'s screenshots,
+GIFs, mp4s and `notes.md`, `/bug-hunt`'s `hunt/` and `/qa-demo`'s `qa/`. It is never committed or pushed. A PR body
+names each image as `![alt](evidence:<file>)`, and `ai-brain/bin/pr-images <owner>/<repo>#<number> <evidence folder>`
+uploads them through a browser signed in to GitHub and rewrites the body with the links
+([docs/SPRINTS.md § Evidence](docs/SPRINTS.md#evidence)).
+
 ### What the skills need
 
 - Claude Code, with sessions started at the workspace root.
 - The `gh` CLI, signed in, for branches, PRs and review comments.
 - A Jira connection through Claude's Atlassian connector, for `/plan`, `/dev`, `/branch-review` and `/qa-demo`.
-- Playwright, through the workspace's e2e repo (`profile/E2E.md`), for `/bug-hunt` and `/qa-demo`.
+- Node, and the evidence tooling in `ai-brain/evidence/` (Playwright, pinned): `ai-brain/bin/ai-brain-up` installs
+  it when Node is there, or run `npm ci --prefix ai-brain/evidence` and
+  `npx --prefix ai-brain/evidence playwright install chromium`. Then, once per machine,
+  `ai-brain/bin/pr-images --login` to sign the upload browser in to GitHub; the session stays in
+  `ai-brain/evidence/.auth/`, gitignored, and is a credential: never share it.
+- Playwright in the workspace's e2e repo (`profile/E2E.md`), for the specs `/bug-hunt` promotes.
 - The Figma connector, for `qa-design`.
 
 ## Seeing the graph

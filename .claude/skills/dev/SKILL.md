@@ -1,5 +1,5 @@
 ---
-description: Build a ticket from the plan /plan wrote. Works the plan's action items and parity rows on the ticket branches, reusing what other features already built instead of writing a second copy, runs each repo's gates, then checks the change on the local stack the way its users will — real accounts, real buttons, no seeders — as each persona the acceptance criteria name, hunting the edge and worst cases a user would hit. Captures before and after screenshots, an mp4 and a GIF, and on your yes commits, pushes and opens the PRs with the evidence on top. Starts from the ai-brain's brief of the ticket (plan, files to touch, services, open gaps, who built what) and ends by writing a Dev report into the plan in ai-brain/sprints. The product facts it needs (repos, entry points, test data, the evidence folder) come from ai-brain/profile/.
+description: Build a ticket from the plan /plan wrote. Works the plan's action items and parity rows on the ticket branches, reusing what other features already built instead of writing a second copy, runs each repo's gates, then checks the change on the local stack the way its users will — real accounts, real buttons, no seeders — as each persona the acceptance criteria name, hunting the edge and worst cases a user would hit. Captures before and after screenshots, an mp4 and a GIF into ai-brain/sprints/<sprint>/evidence/<KEY>/, and on your yes commits, pushes and opens the PRs with the evidence uploaded on top. Starts from the ai-brain's brief of the ticket (plan, files to touch, services, open gaps, who built what) and ends by writing a Dev report into the plan in ai-brain/sprints. The product facts it needs (repos, entry points, test data, the recording driver) come from ai-brain/profile/.
 argument-hint: "<jira-link|PROJ-123> [--draft] [--no-pr]"
 disable-model-invocation: true
 effort: max
@@ -20,8 +20,10 @@ PRs with the evidence on top.
 Ticket and flags: $ARGUMENTS
 
 Run from the workspace root. Every path below is relative to it. The product facts this skill needs (the repos
-and their gates, the entry points, the test data, the recording and evidence folders) live in the profile,
+and their gates, the entry points, the test data, the recording driver) live in the profile,
 `ai-brain/profile/`; each step names the file and section it reads, and `ai-brain/profile.example/` shows the shape.
+The evidence lands beside the plan, in `ai-brain/sprints/<sprint>/evidence/<KEY>/`, and never leaves the machine
+except as the images uploaded into the PR (`ai-brain/docs/SPRINTS.md` § Evidence).
 
 ## What this does and does not do
 
@@ -52,7 +54,7 @@ and their gates, the entry points, the test data, the recording and evidence fol
 | --- | --- |
 | Jira link or key | Required. Parsed with `[A-Z][A-Z0-9]+-[0-9]+` |
 | `--draft` | PRs open as drafts |
-| `--no-pr` | Push the branches, open nothing, report the compare URLs |
+| `--no-pr` | Push the branches, open nothing, report the compare URLs and the evidence folder |
 
 ## Step 1 — load the plan and the branches
 
@@ -262,28 +264,31 @@ Never shoot a real client's people, and check every frame for one before it leav
 
 ### Recording
 
-- Steps files and runs live in the gitignored run folder `ai-brain/profile/STACK.md` § Recording names. Write
-  them as `/qa-demo` does: the driver's scenarios with `ai-brain/.claude/skills/qa-demo/cursor.mjs` for a
-  visible cursor and captions (`installCursor` before the first navigation; `caption`, `click`, `fill`,
-  `pick`, `hold`).
+- Steps files and runs live in the evidence folder's `runs/` (`ai-brain/sprints/<sprint>/evidence/<KEY>/runs/`,
+  Step 6), gitignored with the rest of `sprints/`; the driver and its commands are in
+  `ai-brain/profile/STACK.md` § Recording. Write them as `/qa-demo` does: the driver's scenarios with
+  `ai-brain/.claude/skills/qa-demo/cursor.mjs` for a visible cursor and captions (`installCursor` before the
+  first navigation; `caption`, `click`, `fill`, `pick`, `hold`).
 - **Rehearse** without video until every step passes, at most three rounds. A failure that is the product
   (the right control, the right data, the wrong result) is a finding, not a script fix.
 - **Record** with the driver's video flag; the command is in § Recording. Record at 1440x900: a driver that sets
   `recordVideo` without a `size` lets Playwright scale the video to 800x500, too small to read a table, and
   § Recording says where the 1440x900 copy lives and how to make it.
-- **Media**: `bash ai-brain/.claude/skills/qa-demo/media.sh <run>/media <run>/<KEY>-<before|after>`
-  gives the mp4 and the GIF. It keeps frames that hold only the cursor, so trim waits and stop-impersonation
+- **Media**: `bash ai-brain/.claude/skills/qa-demo/media.sh <run>/media <evidence>/<KEY>-<before|after>`, with
+  `<run>` a folder in `runs/` and `<evidence>` the evidence folder, gives the mp4 and the GIF. It keeps frames that hold only the cursor, so trim waits and stop-impersonation
   fades with ffmpeg `trim` and `concat` first. Keep each GIF under about 30 seconds and 10 MB.
 - **Screenshots**: one before and after pair per screen an owned criterion names, the same frame in both,
-  named `<KEY>-<AC>-<before|after>-<slug>.png`.
+  named `<KEY>-<AC>-<before|after>-<slug>.png`, saved in the evidence folder itself.
 - **Show the user** the GIF (`SendUserFile`, `display: render`), the key screenshots, and pass or fail per
   criterion and per hunt scenario from `log.json`, before anything is committed.
 
 ## Step 6 — the evidence folder
 
-The ticket's evidence folder in the e2e repo (its path: `ai-brain/profile/E2E.md` § Evidence), on the ticket
-branch in that repo, cut from its base. A dirty checkout, or one on another ticket's branch: ask. It holds the
-screenshot pairs, the GIFs and mp4s, and `notes.md`:
+The ticket's evidence folder sits beside its plan: `ai-brain/sprints/<sprint>/evidence/<KEY>/`, `<sprint>`
+being the plan's folder (`ai-brain/bin/plan-doc path <KEY>`) and a chore filed under its slug. Make it with
+`mkdir -p`. `sprints/` is gitignored, so the folder is never committed or pushed and no branch carries it
+(`ai-brain/docs/SPRINTS.md` § Evidence). It holds the screenshot pairs, the GIFs and mp4s, `notes.md`, and the
+runs in `runs/`; `/bug-hunt` writes into its `hunt/` and `/qa-demo` into its `qa/`. `notes.md`:
 
 | Section | What it says |
 | --- | --- |
@@ -311,20 +316,18 @@ record. Load the repo's own prose skill for the PR text, when it has one (`ai-br
 ## Step 8 — confirm, then ship
 
 One `AskUserQuestion`: per repo the branch, the commit subject, the file count, the base, and whether a PR
-opens; the evidence branch. A no stops here; the Final report
+opens; and the files the PR body will upload from the evidence folder. A no stops here; the Final report
 still writes the Dev report.
 
-1. **Commits**, one per repo, conventional prefix, imperative subject: the engine first, then the frontend,
-   then the e2e evidence.
-2. **Push the evidence branch first**, so the images resolve, then the code branches. A rejected push is
-   reported, never forced.
+1. **Commits**, one per repo, conventional prefix, imperative subject: the engine first, then the frontend.
+   The evidence is not committed anywhere.
+2. **Push** the code branches. A rejected push is reported, never forced.
 3. **PRs**: `gh pr create -R <org>/<repo> --base <base> --head <branch> --title "<KEY> | <Title>"`, the org
    from `ai-brain/profile/REPOS.md` (add `--draft` on `--draft`; skip on `--no-pr`). Fill the repo's
    `pull_request_template.md`. The body:
-   - `# Demo` first. A table per criterion with its before and after images, each the file's raw URL in the
-     e2e repo on its branch (the pattern is in `ai-brain/profile/E2E.md` § Evidence), the GIF inline the same
-     way, and the mp4 as a link. GitHub plays a video inline only when it is dragged into the description in
-     the browser: say so to the user.
+   - `# Demo` first. A table per criterion with its before and after images, each written as a placeholder
+     `![<KEY> <AC> before](evidence:<file>)`, `<file>` relative to the evidence folder; the GIF the same way,
+     and the mp4 too, which becomes GitHub's inline video player once uploaded.
    - What changed and why, and the ticket and its parent. No plan link: the plan stays local in
      `ai-brain/sprints/`, which is gitignored.
    - The paired PR, and that the two merge together.
@@ -332,10 +335,18 @@ still writes the Dev report.
      feature whose files it changed.
    - The action items with their final status, the real gate results with their scopes, the hunt with
      each scenario's result, any parity deviation with its reason, and what is left open.
-4. **The plan**: append the PRs (repo, number, URL, base, draft or not) to the Log, mark the PR items done,
+4. **The images**: right after each `gh pr create`,
+   `ai-brain/bin/pr-images <org>/<repo>#<number> ai-brain/sprints/<sprint>/evidence/<KEY>`. It opens the PR in
+   a browser signed in with the saved GitHub session, uploads each file the body names through GitHub's own
+   attachment box, and rewrites the body with the returned links. When it says the session is missing or
+   expired, run `ai-brain/bin/pr-images --login` (a headed browser; the user signs in once, and the session is
+   saved under `ai-brain/evidence/.auth/`), then run it again. `--dry-run` lists what it would upload. On a
+   failure the placeholders stay in the body and the Final report lists each file to drag into the PR on
+   GitHub, in order.
+5. **The plan**: append the PRs (repo, number, URL, base, draft or not) to the Log, mark the PR items done,
    and write the Dev report (below), in place: `sprints/` is gitignored, so the plan is not committed or
    pushed.
-5. **Jira** only on a separate yes: one comment on the ticket linking the PRs, written by
+6. **Jira** only on a separate yes: one comment on the ticket linking the PRs, written by
    `ai-brain/docs/JIRA_COMMENTS.md`: the link, where the demo is, and the order of release, with no plan
    link. No transition, no field edit.
 
@@ -391,7 +402,8 @@ every connected repo, fast-forwards each clean checkout that sits on its base br
 checkouts it skipped (`ai-brain/ai-brain/var/log/index.log`). The plan reaches the brain at once, read
 from disk; the code reaches it when the PRs merge.
 
-One table per part: the branches and PRs per repo; each criterion with its result and frame; each hunt
+One table per part: the branches and PRs per repo, with the images each PR body uploaded or the files still to
+drag in; each criterion with its result and frame; each hunt
 scenario, clean or broken; each extend and extract, with the other feature it changed; the gates with
 their scopes; what is still open. End with the PRs to review and the commands that review them:
 `/branch-review <KEY>` and `/pr-review`, both the user's to run.
@@ -410,6 +422,8 @@ their scopes; what is still open. End with the PRs to review and the commands th
 - Every run ends with a Dev report in the plan, then `ai-brain/bin/ai-brain index --pull --background`,
   shipped or not.
 - Before shots come first, from the untouched branch.
+- Evidence stays in `ai-brain/sprints/<sprint>/evidence/<KEY>/`, never committed or pushed; its images reach the
+  PR only through `ai-brain/bin/pr-images`.
 - Real accounts, real clicks, a test client. No seeders, no debug mutations, no hand-written requests or
   database writes. Never a shared development, staging or production environment.
 - Ask which entry point to drive (`ai-brain/profile/STACK.md` § Entry points) every time the check is reached,

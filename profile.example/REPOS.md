@@ -15,7 +15,7 @@ never from inside a single repo — a ticket crosses BE and FE and each step has
 | `admin-app` | Micro-frontend for the catalog engine | Piral pilet, React, Apollo, TS | — | `main` |
 | `shell` | The micro-frontend host | Node, Piral | 1234 | `main` |
 | `shared-lib` | Ruby code every engine shares, pinned by tag | Ruby gem | — | `main` |
-| `e2e` | E2E suite, driven by `/bug-hunt`; `/dev` keeps each ticket's demo evidence in `artifacts/tickets/<KEY>/` | Playwright + TS | drives 3000 + a pilet on 5011 | ticket branch, no PR |
+| `e2e` | E2E suite, driven by `/bug-hunt`; specs and probes only, each ticket's evidence lives in `ai-brain/sprints/<sprint>/evidence/<KEY>/` | Playwright + TS | drives 3000 + a pilet on 5011 | ticket branch, no PR |
 | `ai-brain` | The harness and the brain; `sprints/` and `profile/` are gitignored | — | — | branch + PR |
 
 ## Not cloned

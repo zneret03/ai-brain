@@ -1,0 +1,9 @@
+{
+  "name": "ai-brain-evidence",
+  "private": true,
+  "type": "module",
+  "description": "Playwright for the harness: uploads the evidence images a PR body names (pr-images.mjs).",
+  "dependencies": {
+    "playwright": "1.61.1"
+  }
+}
