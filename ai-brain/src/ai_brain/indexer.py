@@ -117,57 +117,104 @@ def lockfile(project: Project) -> str | None:
     return files.show(r.path, files.rev(r.path, r.ref), path) if r else None
 
 
-def boot(project: Project, log) -> bool:
-    """Run the Rails introspection against the monolith checkout. False keeps the previous facts."""
-    if not project.rails_app:
-        return False
-    app = project.root.expanduser() / project.rails_app
-    script = project.dir / "extractors" / "rails_introspect.rb"
+def facts_specs(project: Project) -> list[dict]:
+    """The facts commands: the Rails boot when [rails] names an app, then each [[facts]] entry (docs/AI_BRAIN.md)."""
+    specs = []
+    if project.rails_app:
+        specs.append(
+            {"name": "rails", "app": project.rails_app, "paths": BOOT_PATHS, "env": {"RAILS_ENV": project.rails_env}}
+        )
+    for entry in project.facts:
+        paths = re.compile("|".join(f"(?:{p})" for p in entry["paths"])) if entry.get("paths") else None
+        specs.append({**entry, "paths": paths, "env": entry.get("env", {})})
+    return specs
+
+
+def _command(project: Project, spec: dict, out: Path) -> list[str]:
+    if "command" not in spec:  # the Rails boot
+        app = project.root.expanduser() / spec["app"]
+        ruby = (app / ".ruby-version").read_text().strip() if (app / ".ruby-version").exists() else "ruby"
+        script = project.dir / "extractors" / "rails_introspect.rb"
+        return ["mise", "exec", f"ruby@{ruby}", "--", "bin/rails", "runner", str(script), str(out)]
+    subs = {"{out}": str(out), "{project}": str(project.dir), "{root}": str(project.root.expanduser())}
+    return [re.sub(r"\{(?:out|project|root)\}", lambda m: subs[m.group(0)], arg) for arg in spec["command"]]
+
+
+def boot(project: Project, log, specs: list[dict] | None = None) -> bool:
+    """Run each facts command (every one by default) in its app's folder. One that fails keeps its previous facts.
+    True when any wrote new facts."""
     out_dir = project.dir / "facts"
     out_dir.mkdir(parents=True, exist_ok=True)
-    tmp = out_dir / "rails.jsonl.tmp"
-    ruby = (app / ".ruby-version").read_text().strip() if (app / ".ruby-version").exists() else "ruby"
-    env = dict(os.environ, RAILS_ENV=project.rails_env)
-    cmd = ["mise", "exec", f"ruby@{ruby}", "--", "bin/rails", "runner", str(script), str(tmp)]
-    log(f"booting {project.rails_app} (RAILS_ENV={project.rails_env}) for the facts")
-    res = subprocess.run(cmd, cwd=app, env=env, capture_output=True, text=True, timeout=900)
-    if res.returncode != 0 or not tmp.exists():
-        (VAR / "log").mkdir(parents=True, exist_ok=True)
-        (VAR / "log" / "boot.log").write_text(res.stdout[-20000:] + "\n" + res.stderr[-20000:])
-        log("boot failed; keeping the previous facts (var/log/boot.log)")
-        return False
-    tmp.replace(out_dir / "rails.jsonl")
-    repo_root = app
-    while not (repo_root / ".git").exists() and repo_root != repo_root.parent:
-        repo_root = repo_root.parent
-    sha = files.git(repo_root, "rev-parse", "HEAD").strip()
-    (out_dir / "rails.meta.json").write_text(json.dumps({"sha": sha, "at": int(time.time())}))
-    return True
+    wrote = False
+    for spec in facts_specs(project) if specs is None else specs:
+        name, app = spec["name"], project.root.expanduser() / spec["app"]
+        tmp = out_dir / f"{name}.jsonl.tmp"
+        logfile = "boot.log" if name == "rails" else f"facts-{name}.log"
+        log(
+            f"booting {spec['app']} (RAILS_ENV={spec['env']['RAILS_ENV']}) for the facts"
+            if "command" not in spec
+            else f"facts {name}: running in {spec['app']}"
+        )
+        try:
+            env = dict(os.environ, **spec["env"])
+            res = subprocess.run(
+                _command(project, spec, tmp), cwd=app, env=env, capture_output=True, text=True, timeout=900
+            )
+            failed, output = res.returncode != 0 or not tmp.exists(), res.stdout[-20000:] + "\n" + res.stderr[-20000:]
+        except (OSError, subprocess.TimeoutExpired) as exc:  # a command that is not there, or never returns
+            failed, output = True, f"{type(exc).__name__}: {exc}"
+        if failed:
+            (VAR / "log").mkdir(parents=True, exist_ok=True)
+            (VAR / "log" / logfile).write_text(output)
+            what = "boot" if name == "rails" else f"facts {name}"
+            log(f"{what} failed; keeping the previous facts (var/log/{logfile})")
+            continue
+        tmp.replace(out_dir / f"{name}.jsonl")
+        repo_root = app
+        while not (repo_root / ".git").exists() and repo_root != repo_root.parent:
+            repo_root = repo_root.parent
+        sha = files.git(repo_root, "rev-parse", "HEAD").strip()
+        (out_dir / f"{name}.meta.json").write_text(json.dumps({"sha": sha, "at": int(time.time())}))
+        wrote = True
+    return wrote
 
 
 def load_facts(project: Project) -> tuple[dict[str, list[dict]], dict]:
+    """Every facts file's rows by type, and for the header the Rails boot's meta, else the first command's; `all`
+    holds each command's."""
     facts: dict[str, list[dict]] = {}
-    path = project.dir / "facts" / "rails.jsonl"
-    if path.exists():
+    metas: dict[str, dict] = {}
+    for path in sorted((project.dir / "facts").glob("*.jsonl")):
         for line in path.read_text().splitlines():
-            row = json.loads(line)
-            facts.setdefault(row["t"], []).append(row)
-    meta_path = project.dir / "facts" / "rails.meta.json"
-    meta = json.loads(meta_path.read_text()) if meta_path.exists() else {}
-    return facts, meta
+            if line.strip():
+                row = json.loads(line)
+                facts.setdefault(row["t"], []).append(row)
+        meta_path = path.with_name(f"{path.stem}.meta.json")
+        if meta_path.exists():
+            metas[path.stem] = json.loads(meta_path.read_text())
+    meta = metas.get("rails") or next(iter(metas.values()), {})
+    return facts, {**meta, "all": metas} if metas else {}
 
 
-def needs_boot(project: Project, mode: str, facts_meta: dict) -> bool:
-    if mode == "full" or not facts_meta:
+def needs_run(project: Project, spec: dict, mode: str) -> bool:
+    """A facts command runs on a full index, when it never ran, and when its repo moved a path it reads: one its
+    `paths` match, or any under its app's folder."""
+    meta_path = project.dir / "facts" / f"{spec['name']}.meta.json"
+    if mode == "full" or not meta_path.exists():
         return True
-    app_repo = project.repo(project.rails_app.split("/")[0]) if project.rails_app else None
-    if app_repo is None:
+    sha = json.loads(meta_path.read_text()).get("sha")
+    repo_name, _, inside = spec["app"].partition("/")
+    repo = project.repo(repo_name)
+    if repo is None:
         return False
-    head = files.git(app_repo.path, "rev-parse", "HEAD").strip()
-    if head == facts_meta.get("sha"):
+    head = files.git(repo.path, "rev-parse", "HEAD").strip()
+    if head == sha:
         return False
-    changed = files.diff_names(app_repo.path, facts_meta["sha"], head) if facts_meta.get("sha") else ["db/"]
-    return any(BOOT_PATHS.search(p) for p in changed)
+    changed = files.diff_names(repo.path, sha, head) if sha else ["db/"]
+    if spec["paths"] is None:
+        prefix = inside.rstrip("/") + "/" if inside else ""
+        return any(p.startswith(prefix) for p in changed)
+    return any(spec["paths"].search(p) for p in changed)
 
 
 def build(
@@ -204,9 +251,13 @@ def build(
             listing[repo.name] = files.ls_tree(repo.path, shas[repo.name])
     log(f"parsed {sum(len(v) for v in parsed.values())} files in {time.time() - t0:.0f}s")
     facts, facts_meta = load_facts(project)
-    if boot_mode == "always" or (boot_mode == "auto" and needs_boot(project, mode, facts_meta)):
-        if boot(project, log):
-            facts, facts_meta = load_facts(project)
+    due = [
+        s
+        for s in facts_specs(project)
+        if boot_mode == "always" or (boot_mode == "auto" and needs_run(project, s, mode))
+    ]
+    if due and boot(project, log, due):
+        facts, facts_meta = load_facts(project)
     g = Graph(project.name)
     ls = {r: [p for p, _, _ in rows] for r, rows in listing.items()}
     ctx = Ctx(
@@ -240,6 +291,7 @@ def build(
         "facts_sha": facts_meta.get("sha"),
         "facts_at": facts_meta.get("at"),
         "facts_errors": (facts.get("meta") or [{}])[0].get("errors", []),
+        "facts": {name: m.get("sha") for name, m in facts_meta.get("all", {}).items()},
         "notes": ctx.notes,
         "skew": [list(r) for r in getattr(ctx, "skew", [])],
         "units": [u.name for u in ctx.units],

@@ -142,11 +142,16 @@ def _doctor(args) -> str:
         lines.append(
             f"{'ok ' if state else '-- '} index       {name}: " + (output.header(state) if state else "none yet")
         )
-        facts = p.dir / "facts" / "rails.jsonl"
-        lines.append(
-            f"{'ok ' if facts.exists() else '-- '} facts       {facts.relative_to(BRAIN)}"
-            + (f" ({time.strftime('%Y-%m-%d %H:%M', time.localtime(facts.stat().st_mtime))})" if facts.exists() else "")
-        )
+        found = sorted((p.dir / "facts").glob("*.jsonl")) if (p.dir / "facts").is_dir() else []
+        for facts in found or [p.dir / "facts" / "rails.jsonl"]:
+            lines.append(
+                f"{'ok ' if facts.exists() else '-- '} facts       {facts.relative_to(BRAIN)}"
+                + (
+                    f" ({time.strftime('%Y-%m-%d %H:%M', time.localtime(facts.stat().st_mtime))})"
+                    if facts.exists()
+                    else ""
+                )
+            )
     return "\n".join(lines), worst
 
 

@@ -12,9 +12,9 @@ query. Every file neither reads is still a node in the graph, with no symbols or
 | Ruby | `.rb` | classes and modules with their superclass; methods with their parameters; constants, resolved by Ruby's lexical nesting; calls on a constant or on `self`, and calls on any other receiver when the method name is defined once in that component and is not a common name such as `save` or `call`, marked `(inferred)`; `Flipper.enabled?` flags; `ENV` reads; HTTP clients (Faraday, HTTParty, Net::HTTP, RestClient); job enqueues (`perform_later`, `perform_async`, `perform_in`, `perform_at`); Kafka topics from `register_as` and `topic_name`; RSpec `describe` targets; URLs in strings |
 | TypeScript, JavaScript | `.ts`, `.tsx`, `.js`, `.jsx`, `.mjs` | functions, classes and methods, React components and hooks; imports, resolved through relative paths and the `baseUrl` and `paths` of `tsconfig.json`, following `export … from` up to three hops; calls to imported and local functions; `gql` and `graphql` documents; `fetch` paths; `process.env` reads; micro-frontend registrations (`registerPage`, `registerExtension`, `registerMenu`, `registerTile`, `registerModal`) and `ExtensionSlot` names; `hasPrivilege` checks; Action Cable channels; Playwright `goto` paths; ticket tags such as `@PROJ-123` in strings that start with `@`; URLs in strings |
 
-JavaScript is parsed with the TSX grammar. A Rails app's routes, GraphQL schema, models, policies, jobs, mounts and
-Kafka consumers are not parsed: they come from booting the app with a script you supply (`[rails]` in
-`project.toml`, `ai-brain/README.md`). That boot is Rails only.
+JavaScript is parsed with the TSX grammar. Routes, GraphQL schemas, models, jobs and Kafka consumers are not parsed,
+in any language: they come from a facts command per app, which for Rails boots the app with a script you supply
+(below, and `ai-brain/docs/AI_BRAIN.md`, Facts from any stack).
 
 ## Every other language
 
@@ -90,10 +90,17 @@ Import resolution, env reads and test files for a seventh language take a row in
 (`ai-brain/ai-brain/src/ai_brain/link/code.py`) and its test paths in `TEST_PATH`
 (`ai-brain/ai-brain/src/ai_brain/model/__init__.py`), with tests in `ai-brain/ai-brain/tests/test_languages.py`.
 
+## Facts and components for other stacks
+
+- **Facts.** A `[[facts]]` command per app writes the rows the Rails boot writes (routes, GraphQL schema and fields,
+  models, tables, jobs, Kafka consumers), naming each handler and resolver as `{file, symbol}`. Its rows, and when it
+  runs: `ai-brain/docs/AI_BRAIN.md`, Facts from any stack. A TypeScript operation then reaches a Python or Go
+  resolver the same way it reaches a Ruby one.
+- **Components.** In a monorepo, a subfolder of `packages/`, `libs/`, `crates/`, `services/` or `cmd/` that holds a
+  manifest (`pyproject.toml`, `setup.py`, `mix.exs`, `Cargo.toml`, `go.mod`, `package.json`, `pom.xml`,
+  `build.gradle`, `build.gradle.kts`) is a component, beside `apps/*` and `gems/*`. `[monorepo] roots` adds more
+  folders, with their kind: `roots = { pilets = "pilet" }`.
+
 ## Planned, not built
 
-1. **Framework facts from any stack.** A facts command per app writes the rows the Rails boot writes today
-   (routes, GraphQL fields, models, jobs, topics), and a monorepo's components are found from `pyproject.toml`,
-   `mix.exs`, `Cargo.toml`, `go.mod`, `package.json`, `pom.xml` and `build.gradle`. Today the components come from
-   `apps/*` and `gems/*`.
-2. **Contracts in no particular language.** GraphQL schema files and OpenAPI files become interfaces.
+- **Contracts in no particular language.** GraphQL schema files and OpenAPI files become interfaces.

@@ -32,7 +32,12 @@ def link(ctx: Ctx) -> None:
     ctx.routes = []
     for row in ctx.facts.get("route", []):
         verb = row.get("verb") or "ANY"
-        unit = engine_unit.get(row.get("engine")) or next((u.name for u in ctx.units if u.kind == "app"), None)
+        handler = ctx.symbol_at(row.get("handler"))
+        unit = (
+            engine_unit.get(row.get("engine"))
+            or (g.nodes[handler][1].get("unit") if handler else None)
+            or next((u.name for u in ctx.units if u.kind == "app"), None)
+        )
         rid = g.iface(
             "route",
             f"{verb} {row['path']}",
@@ -43,7 +48,7 @@ def link(ctx: Ctx) -> None:
             action=row.get("action"),
         )
         ctx.routes.append((rid, verb, row["path"], unit))
-        target = _handler(ctx, row.get("controller"), row.get("action"))
+        target = handler or _handler(ctx, row.get("controller"), row.get("action"))
         if target:
             g.edge("HANDLED_BY", rid, target)
             props = g.nodes[target][1]

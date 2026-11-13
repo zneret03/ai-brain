@@ -31,6 +31,10 @@ def link(ctx: Ctx) -> None:
         for path in paths:
             if path.endswith("db/structure.sql") and "/spec/" not in "/" + path:
                 _structure_sql(ctx, repo, path, ctx.unit(repo, path), owner_of)
+    for row in ctx.facts.get("table", []):  # a facts command that knows its ORM's tables
+        rel = ctx.rel(row.get("file")) or ("", "")
+        name = _qualify(row["name"], row.get("schema") or "public")
+        _table(ctx, name, ctx.unit(*rel) if rel[0] else None, rel[0], rel[1], row.get("columns") or [], owner_of)
     ctx.table_owner = owner_of
     _models(ctx)
 

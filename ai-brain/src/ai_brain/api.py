@@ -535,6 +535,8 @@ def status(project: str | None = None, skew: bool = False, show_all: bool = Fals
     langs = sorted((state.get("languages") or {}).items(), key=lambda kv: (-kv[1], kv[0]))
     if langs:
         lines.append("languages     " + ", ".join(f"{k} {v}" for k, v in langs) + " (files parsed)")
+    if state.get("facts"):
+        lines.append("facts         " + ", ".join(f"{k}@{(v or '?')[:7]}" for k, v in sorted(state["facts"].items())))
     engines, prefix = state.get("engines", []), state.get("strip_prefix", "")
     lines.append(f"engines       {len(engines)}: " + " ".join(output.short(e, prefix) for e in engines))
     lines.append(f"externals     {len(state.get('externals', []))}: " + " ".join(state.get("externals", [])))
