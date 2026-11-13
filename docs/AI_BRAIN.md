@@ -138,8 +138,10 @@ skips it. One that fails keeps its last facts and writes its output to `ai-brain
 `class`, `consumer` and `symbol` name a definition the way the brain names it: `Order.total` in most languages,
 `Billing::Invoice` and `Billing::Invoice#total` in Ruby. The Rails boot names handlers with `controller` and `action`
 and resolvers with `cls` and `method` instead, and writes three rows only Rails has: `mount` (an engine's mount and its
-gates), `channel` (an Action Cable channel) and `cpath` (Zeitwerk's constant map). With one GraphQL schema in the
-workspace and no `[extractors] pilet_routing`, every frontend operation is matched against that schema.
+gates), `channel` (an Action Cable channel) and `cpath` (Zeitwerk's constant map). With no
+`[extractors] pilet_routing`, a frontend operation is matched against the workspace's one GraphQL schema, or with
+several, against the one whose root type has every field the operation starts at. A component with no facts command
+can declare its schema and routes in files instead: `ai-brain/docs/LANGUAGES.md`, Contract files.
 
 ## Using it from a skill or an agent
 

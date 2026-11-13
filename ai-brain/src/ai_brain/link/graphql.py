@@ -1,5 +1,5 @@
-"""GraphQL: schemas, types, fields and resolvers from the boot (A7); operations, fragments, routing, SELECTS,
-USES and per-field skew from the documents (A8)."""
+"""GraphQL: schemas, types, fields and resolvers from the boot (A7), and from the schema files of components the boot
+does not cover (A12); operations, fragments, routing, SELECTS, USES and per-field skew from the documents (A8)."""
 
 from __future__ import annotations
 
@@ -8,12 +8,19 @@ import re
 from collections import defaultdict
 
 from graphql import (
+    DocumentNode,
     FieldNode,
     FragmentDefinitionNode,
     FragmentSpreadNode,
+    InterfaceTypeDefinitionNode,
+    InterfaceTypeExtensionNode,
+    ObjectTypeDefinitionNode,
+    ObjectTypeExtensionNode,
     OperationDefinitionNode,
     TypeInfo,
     TypeInfoVisitor,
+    TypeSystemDefinitionNode,
+    TypeSystemExtensionNode,
     Visitor,
     build_schema,
     parse,
@@ -42,6 +49,8 @@ def link(ctx: Ctx) -> None:
             or len(row["sdl"]) > len(sdl_by_unit[key])
         ):
             sdl_by_unit[key] = row["sdl"]
+    ctx.graphql_docs = _documents(ctx)
+    _schema_files(ctx, sdl_by_unit)
     ctx.graphql_sdl = sdl_by_unit
     for row in ctx.facts.get("field", []):
         key = owner_of.get(row["schema"], row["schema"])
@@ -66,6 +75,65 @@ def link(ctx: Ctx) -> None:
             if not props.get("role"):
                 props["role"] = role
     _operations(ctx)
+
+
+SDL_FILES = (".graphql", ".graphqls", ".gql")
+TYPES = (ObjectTypeDefinitionNode, ObjectTypeExtensionNode, InterfaceTypeDefinitionNode, InterfaceTypeExtensionNode)
+
+
+def _documents(ctx: Ctx) -> dict[str, list[tuple[str, DocumentNode]]]:
+    """Every .graphql document of the code repos, parsed: schema files and operation files alike."""
+    docs: dict[str, list[tuple[str, DocumentNode]]] = defaultdict(list)
+    for repo in ctx.parsed:
+        for path in sorted(p for p in ctx.paths(repo) if p.endswith(SDL_FILES)):
+            text = ctx.text(repo, path) or ""
+            try:
+                if text.strip():
+                    docs[repo].append((path, parse(text)))
+            except Exception as exc:  # a document graphql-core cannot parse is left out, with a note
+                ctx.notes.append(f"graphql {repo}/{path}: {str(exc)[:100]}")
+    return docs
+
+
+def _schema_files(ctx: Ctx, sdl_by_unit: dict[str, str]) -> None:
+    """The types and fields of each component's own schema files, declared at their lines. A component the boot
+    already gave a schema keeps it: the running app is the authority, and its files are dumps of it."""
+    g, booted, parts = ctx.g, set(sdl_by_unit), defaultdict(list)
+    for repo, docs in ctx.graphql_docs.items():
+        for path, doc in docs:
+            unit = ctx.contract_unit(repo, path)
+            sdl = [d for d in doc.definitions if isinstance(d, TypeSystemDefinitionNode | TypeSystemExtensionNode)]
+            if unit is None or unit.name in booted or not sdl:
+                continue
+            key, fid_file = unit.name, g.file_id(repo, path)
+            parts[key].append(print_ast(DocumentNode(definitions=tuple(sdl))))
+            for d in (d for d in sdl if isinstance(d, TYPES)):
+                tname = d.name.value
+                tid = g.iface(
+                    "graphql_type", f"{key}/{tname}", display=tname, owner=key, search=tokens(tname), line=_line(d.name)
+                )
+                g.edge("DECLARES", fid_file, tid, line=_line(d.name))
+                for f in d.fields or []:
+                    fname, line = f.name.value, _line(f.name)
+                    fid = g.iface(
+                        "graphql_field",
+                        f"{key}/{tname}.{fname}",
+                        display=f"{tname}.{fname}",
+                        owner=key,
+                        args=[a.name.value for a in f.arguments or []],
+                        search=tokens(tname, fname),
+                        line=line,
+                    )
+                    g.edge("DEFINES", tid, fid)
+                    g.edge("DECLARES", fid_file, fid, line=line)
+                    if g.comp_id(key) in g.nodes:
+                        g.edge("EXPOSES", g.comp_id(key), fid)
+    for key, texts in parts.items():
+        sdl_by_unit[key] = "\n\n".join(texts)
+
+
+def _line(node) -> int:
+    return node.loc.start_token.line if node is not None and node.loc else 0
 
 
 def _resolver_symbol(ctx: Ctx, impl: dict | None) -> str | None:
@@ -101,6 +169,7 @@ def _load_router(ctx: Ctx):
 def _operations(ctx: Ctx) -> None:
     g = ctx.g
     routers = _load_router(ctx)
+    routed = bool(ctx.project.extractors.get("pilet_routing"))
     schemas = {}
     for unit, sdl in ctx.graphql_sdl.items():
         try:
@@ -125,9 +194,17 @@ def _operations(ctx: Ctx) -> None:
                     elif isinstance(d, OperationDefinitionNode) and d.name:
                         offset = d.loc.start_token.line - 1 if d.loc else 0
                         ops.append((path, const, line + offset, d))
+        for path, doc in ctx.graphql_docs.get(repo, []):  # operation files, as codegen setups keep them
+            for d in doc.definitions:
+                if isinstance(d, FragmentDefinitionNode):
+                    fragments[d.name.value] = d
+                elif isinstance(d, OperationDefinitionNode) and d.name:
+                    ops.append((path, "", _line(d), d))
         for path, const, line, op in ops:
             name = op.name.value
             unit = route(name)
+            if unit is None and not routed:
+                unit = _by_root_fields(schemas, op)
             oid = g.iface(
                 "graphql_operation",
                 f"{repo}/{name}",
@@ -157,6 +234,18 @@ def _operations(ctx: Ctx) -> None:
                 g.nodes[oid][1]["unresolved"] = unknown[:20]
     _uses(ctx)
     _skew(ctx, schemas)
+
+
+def _by_root_fields(schemas: dict, op: OperationDefinitionNode) -> str | None:
+    """With no router and several schemas: the one schema whose root type has every field the operation starts at."""
+    names = {s.name.value for s in op.selection_set.selections if isinstance(s, FieldNode)} - {"__typename"}
+    hits = []
+    for unit, schema in schemas.items():
+        roots = {"query": schema.query_type, "mutation": schema.mutation_type, "subscription": schema.subscription_type}
+        root = roots.get(op.operation.value)
+        if names and root is not None and names <= set(root.fields):
+            hits.append(unit)
+    return hits[0] if len(hits) == 1 else None
 
 
 def _selected(schema, op: OperationDefinitionNode, fragments: dict) -> list[tuple[str | None, str]]:
