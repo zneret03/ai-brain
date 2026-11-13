@@ -532,6 +532,9 @@ def status(project: str | None = None, skew: bool = False, show_all: bool = Fals
                 counts[lab] = counts.get(lab, 0) + r["n"]
         edges = s.run(Q.EDGE_COUNT, p=p.name).single()["n"]
     lines.append("graph         " + ", ".join(f"{k} {v}" for k, v in sorted(counts.items())) + f", edges {edges}")
+    langs = sorted((state.get("languages") or {}).items(), key=lambda kv: (-kv[1], kv[0]))
+    if langs:
+        lines.append("languages     " + ", ".join(f"{k} {v}" for k, v in langs) + " (files parsed)")
     engines, prefix = state.get("engines", []), state.get("strip_prefix", "")
     lines.append(f"engines       {len(engines)}: " + " ".join(output.short(e, prefix) for e in engines))
     lines.append(f"externals     {len(state.get('externals', []))}: " + " ".join(state.get("externals", [])))

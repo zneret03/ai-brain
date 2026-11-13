@@ -468,3 +468,187 @@ def built(project_dir, tmp_path_factory):
     g, meta, ctx = indexer.build(p, fetch=False, boot_mode="never", log=lambda m: None)
     yield g, meta, ctx
     patch.undo()
+
+
+# A second workspace: one small repo per language the generic reader resolves imports for, a Python monorepo with
+# two components, and a bash script read through a project query (A1-A7).
+POLY = {
+    "pyapp": {
+        "shop/__init__.py": "",
+        "shop/models.py": """
+            import os
+
+            API = os.environ.get("SHOP_API_URL")
+
+
+            class Order:
+                def total(self, rate):
+                    return self.subtotal() * rate
+
+                def subtotal(self):
+                    return 10
+        """,
+        "shop/billing.py": """
+            from .models import Order
+            import shop.models as m
+
+
+            def charge(order_id):
+                order = Order()
+                return order.total(2) + m.Order().subtotal()
+        """,
+        "tests/test_billing.py": '''
+            from shop.billing import charge
+
+
+            def test_charge():
+                """@PROJ-7 charges an order"""
+                assert charge(1)
+        ''',
+        "scripts/deploy.sh": "build() {\n  echo building\n}\ndeploy() {\n  build\n}\ndeploy\n",
+    },
+    "pymono": {
+        "apps/api/api/__init__.py": "",
+        "apps/api/api/handlers.py": "from worker.jobs import enqueue_job\n\n\ndef handle():\n    return enqueue_job(1)\n",
+        "apps/worker/worker/__init__.py": "",
+        "apps/worker/worker/jobs.py": "def enqueue_job(n):\n    return n\n",
+    },
+    "exapp": {
+        "lib/shop/billing.ex": "defmodule Shop.Billing do\n  def charge(order), do: order\nend\n",
+        "lib/shop/orders.ex": """
+            defmodule Shop.Orders do
+              alias Shop.Billing
+
+              def total(id) do
+                key = System.get_env("SHOP_KEY")
+                Billing.charge(helper(id))
+              end
+
+              defp helper(x), do: x
+            end
+        """,
+        "test/shop/orders_test.exs": """
+            defmodule Shop.OrdersTest do
+              use ExUnit.Case
+              alias Shop.Orders
+
+              test "total" do
+                assert Orders.total(1)
+              end
+            end
+        """,
+    },
+    "rsapp": {
+        "Cargo.toml": '[package]\nname = "rs-app"\nversion = "0.1.0"\n',
+        "src/lib.rs": "pub mod billing;\npub mod order;\n",
+        "src/billing.rs": "pub fn charge(id: u32) -> u32 {\n    id\n}\n",
+        "src/order.rs": """
+            use crate::billing::charge;
+
+            pub struct Order {
+                pub id: u32,
+            }
+
+            impl Order {
+                pub fn total(&self) -> u32 {
+                    charge(self.id) + self.fee()
+                }
+
+                fn fee(&self) -> u32 {
+                    std::env::var("FEE").map(|_| 1).unwrap_or(0)
+                }
+            }
+        """,
+        "tests/order.rs": "use rs_app::order::Order;\n\n#[test]\nfn totals() {\n    let _ = Order { id: 1 };\n}\n",
+    },
+    "goapp": {
+        "go.mod": "module example.com/shop\n\ngo 1.22\n",
+        "billing/billing.go": "package billing\n\nfunc Charge(id int) int { return id }\n",
+        "orders/orders.go": """
+            package orders
+
+            import (
+            \t"os"
+
+            \tb "example.com/shop/billing"
+            )
+
+            type Order struct{ ID int }
+
+            func (o *Order) Total() int { return b.Charge(o.ID) + fee() }
+
+            func fee() int {
+            \tif os.Getenv("FEE") != "" {
+            \t\treturn 1
+            \t}
+            \treturn 0
+            }
+        """,
+        "orders/orders_test.go": 'package orders\n\nimport "testing"\n\nfunc TestTotal(t *testing.T) {}\n',
+    },
+    "jvapp": {
+        "src/main/java/shop/billing/Billing.java": """
+            package shop.billing;
+
+            public class Billing {
+              public static int charge(int id) { return id; }
+            }
+        """,
+        "src/main/java/shop/orders/OrderService.java": """
+            package shop.orders;
+
+            import shop.billing.Billing;
+
+            public class OrderService {
+              public int total(int id) { return Billing.charge(id) + this.fee(); }
+
+              int fee() { return System.getenv("FEE") == null ? 0 : 1; }
+            }
+        """,
+        "src/test/java/shop/orders/OrderServiceTest.java": """
+            package shop.orders;
+
+            class OrderServiceTest {
+              void totals() { new OrderService().total(1); }
+            }
+        """,
+    },
+}
+BASH_TAGS = """
+(function_definition name: (word) @name) @definition.function
+(command name: (command_name (word) @name)) @reference.call
+"""
+
+
+@pytest.fixture(scope="session")
+def poly_built(tmp_path_factory):
+    from tree_sitter_language_pack import get_parser
+
+    from ai_brain.extract import languages
+
+    try:
+        for lang in ("python", "elixir", "rust", "go", "java", "bash"):
+            get_parser(lang)
+    except Exception as exc:  # the first run downloads each grammar
+        pytest.skip(f"grammars not available: {exc}")
+    root = tmp_path_factory.mktemp("poly")
+    for name, files in POLY.items():
+        _repo(root, name, files)
+    projects = tmp_path_factory.mktemp("poly-projects")
+    (projects / "poly" / "queries" / "bash").mkdir(parents=True)
+    (projects / "poly" / "queries" / "bash" / "tags.scm").write_text(BASH_TAGS)
+    repos = "".join(
+        f'[[repos]]\nname = "{n}"\nrole = "{"monorepo" if n == "pymono" else "app"}"\nref = "main"\n' for n in POLY
+    )
+    (projects / "poly" / "project.toml").write_text(f'[project]\nname = "poly"\nroot = "{root}"\n{repos}')
+    patch = pytest.MonkeyPatch()
+    var = tmp_path_factory.mktemp("poly-var")
+    for mod in (config, indexer, corpus):
+        patch.setattr(mod, "VAR", var)
+    patch.setattr(config, "PROJECTS", projects)
+    try:
+        built = indexer.build(config.load_project("poly"), fetch=False, boot_mode="never", log=lambda m: None)
+    finally:
+        patch.undo()
+        languages.configure()
+    return built

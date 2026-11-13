@@ -57,6 +57,7 @@ class Project:
     app_names: dict[str, str] = field(default_factory=dict)
     own_hosts: tuple[str, ...] = ()
     snapshots: dict[tuple[str, str], str] = field(default_factory=dict)
+    languages: dict[str, list[str]] = field(default_factory=dict)  # [languages] include / exclude
 
     def repo(self, name: str) -> Repo | None:
         return next((r for r in self.repos + self.knowledge if r.name == name), None)
@@ -100,6 +101,7 @@ def load_project(name: str | None = None, cwd: Path | None = None) -> Project:
         app_names=raw.get("names", {}).get("apps", {}),
         own_hosts=tuple(raw.get("http", {}).get("own_hosts", [])),
         snapshots={(s["repo"], s["path"]): s["engine"] for s in raw.get("graphql", {}).get("snapshots", [])},
+        languages=raw.get("languages", {}),
     )
 
 

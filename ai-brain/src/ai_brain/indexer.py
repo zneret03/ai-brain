@@ -9,12 +9,13 @@ import os
 import re
 import subprocess
 import time
+from collections import Counter
 from contextlib import contextmanager
 from pathlib import Path
 
 from . import config
 from .config import VAR, Project
-from .extract import corpus, files
+from .extract import corpus, files, languages
 from .link import Ctx
 from .model import Graph
 
@@ -193,6 +194,7 @@ def build(
                     timeout=180,
                 )
     shas = target_shas(project, lock_text)
+    languages.configure(*languages.project_settings(project))
     parsed, listing = {}, {}
     for repo in project.repos:
         if repo.name in shas:
@@ -217,6 +219,7 @@ def build(
         facts=facts,
         lock=lock_text,
     )
+    ctx.notes.extend(languages.notes())
     import importlib
 
     for name in LINKERS:
@@ -233,6 +236,7 @@ def build(
         "strip_prefix": project.strip_prefix,
         "coverage": round(100.0 * ok / wanted, 1) if wanted else 0.0,
         "parse_errors": errors,
+        "languages": dict(Counter(f.get("lang") or "?" for files_ in parsed.values() for f in files_.values())),
         "facts_sha": facts_meta.get("sha"),
         "facts_at": facts_meta.get("at"),
         "facts_errors": (facts.get("meta") or [{}])[0].get("errors", []),
